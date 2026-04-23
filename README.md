@@ -2,6 +2,10 @@
 
 **Blink more, dry less.**
 
+[Download the latest Windows release](https://github.com/yuejianli-z/Dryless/releases/latest)
+
+[下载最新 Windows 版本](https://github.com/yuejianli-z/Dryless/releases/latest)
+
 Dryless is a local-first Windows desktop app that monitors blink frequency in real time and reminds users to blink before eye strain and dry-eye discomfort build up.
 
 Dryless 是一个本地优先的 Windows 桌面应用，用于实时监测眨眼频率，并在长时间未眨眼时提醒用户主动眨眼，帮助缓解用眼疲劳和干眼不适。
@@ -15,6 +19,10 @@ Dryless 是一个本地优先的 Windows 桌面应用，用于实时监测眨眼
 For most users, download the latest `Dryless.exe` from GitHub Releases and double-click to run it.
 
 对于大多数用户，直接从 GitHub Releases 下载最新的 `Dryless.exe`，双击即可运行。
+
+Release page / 发布页:
+
+- https://github.com/yuejianli-z/Dryless/releases
 
 Notes / 说明:
 
