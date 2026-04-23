@@ -200,21 +200,7 @@ dryless/
   face_landmarker.task MediaPipe face model
 ```
 
-## Release Strategy / 发布方式
-
-Recommended GitHub layout:
-
-- Source code in the repository
-- Executable files in GitHub Releases
-- Version tags such as `v0.1.0`, `v0.1.1`, `v0.2.0`
-
-推荐 GitHub 发布方式：
-
-- 仓库中放源码
-- GitHub Releases 中放 EXE
-- 使用 `v0.1.0`、`v0.1.1`、`v0.2.0` 这样的版本标签
-
-## Known Notes / 已知说明
+## Limitations / 使用说明与限制
 
 - Dryless is currently focused on Windows
 - The release executable may trigger warnings because it is unsigned
