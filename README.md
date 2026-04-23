@@ -204,6 +204,40 @@ Recommended GitHub layout:
 - 摄像头权限可能被 Windows 隐私设置或公司安全策略阻止
 - 眨眼检测效果会受到光线、摄像头角度、人脸可见度、眼镜反光等因素影响
 
+## Interface Preview / 界面预览
+
+### Logo / 标志
+
+![Dryless Logo](icon.png)
+
+### English UI / 英文界面
+
+#### Monitor
+
+![English Monitor](docs/images/monitor-en.png)
+
+#### Stats
+
+![English Stats](docs/images/stats-en.png)
+
+#### Settings
+
+![English Settings](docs/images/settings-en.png)
+
+### Chinese UI / 中文界面
+
+#### 监控
+
+![Chinese Monitor](docs/images/monitor-zh.png)
+
+#### 统计
+
+![Chinese Stats](docs/images/stats-zh.png)
+
+#### 设置
+
+![Chinese Settings](docs/images/settings-zh.png)
+
 ## Contributing / 参与贡献
 
 Issues and pull requests are welcome. Please keep privacy and local-first behavior as core project principles.
