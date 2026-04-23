@@ -10,9 +10,23 @@ Dryless is a local-first Windows desktop app that monitors blink frequency in re
 
 Dryless 是一个本地优先的 Windows 桌面应用，用于实时监测眨眼频率，并在长时间未眨眼时提醒用户主动眨眼，帮助缓解用眼疲劳和干眼不适。
 
+<p align="center">
+  <img src="icon.png" alt="Dryless logo" width="88">
+</p>
+
 ![Python](https://img.shields.io/badge/Python-3.10%2B-blue)
 ![Platform](https://img.shields.io/badge/platform-Windows-lightgrey)
 ![License](https://img.shields.io/badge/license-MIT-green)
+
+## Preview / 预览
+
+### English UI
+
+<p align="center">
+  <img src="docs/images/monitor-en.png" alt="Dryless monitor screen in English" width="32%">
+  <img src="docs/images/stats-en.png" alt="Dryless stats screen in English" width="32%">
+  <img src="docs/images/settings-en.png" alt="Dryless settings screen in English" width="32%">
+</p>
 
 ## Download / 下载
 
@@ -57,6 +71,14 @@ Notes / 说明:
 - 会话统计与本地历史记录
 - 中英文界面文案
 - Windows 托盘集成
+
+### Chinese UI / 中文界面
+
+<p align="center">
+  <img src="docs/images/monitor-zh.png" alt="Dryless monitor screen in Chinese" width="32%">
+  <img src="docs/images/stats-zh.png" alt="Dryless stats screen in Chinese" width="32%">
+  <img src="docs/images/settings-zh.png" alt="Dryless settings screen in Chinese" width="32%">
+</p>
 
 ## Privacy / 隐私说明
 
@@ -203,40 +225,6 @@ Recommended GitHub layout:
 - 发布版 EXE 因未签名，可能触发系统或杀毒软件提示
 - 摄像头权限可能被 Windows 隐私设置或公司安全策略阻止
 - 眨眼检测效果会受到光线、摄像头角度、人脸可见度、眼镜反光等因素影响
-
-## Interface Preview / 界面预览
-
-### Logo / 标志
-
-![Dryless Logo](icon.png)
-
-### English UI / 英文界面
-
-#### Monitor
-
-![English Monitor](docs/images/monitor-en.png)
-
-#### Stats
-
-![English Stats](docs/images/stats-en.png)
-
-#### Settings
-
-![English Settings](docs/images/settings-en.png)
-
-### Chinese UI / 中文界面
-
-#### 监控
-
-![Chinese Monitor](docs/images/monitor-zh.png)
-
-#### 统计
-
-![Chinese Stats](docs/images/stats-zh.png)
-
-#### 设置
-
-![Chinese Settings](docs/images/settings-zh.png)
 
 ## Contributing / 参与贡献
 
