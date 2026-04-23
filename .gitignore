@@ -1,0 +1,45 @@
+# Python cache
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+
+# Virtual environments
+.venv/
+venv/
+env/
+
+# Local runtime data
+blink_data.json
+
+# Local IDE and personal tooling files
+.vscode/
+.idea/
+.claude/
+.impeccable.md
+
+# Windows system files
+Thumbs.db
+desktop.ini
+
+# Temporary example / scratch files
+uiexample.py
+
+# Build artifacts
+build/
+dist/
+*.spec
+
+# Logs
+out.txt
+*.log
+
+# Legacy one-off helper scripts
+fix.py
+fix2.py
+update_translations.py
+update_retranslate.py
+update_cifen.py
+
+# Private archive created during repo cleanup
+_private_keep/
