@@ -1,0 +1,26 @@
+{
+  "version": "0.2.0-rc.3",
+  "source_commit": "916a0ef9700b590e0357bebf3f93dd4683d861ab",
+  "platform": "Windows-11-10.0.26200-SP0",
+  "sha256": "ece4800c0ae8c9230f16ce406afea350addca3b4e18df1d1e4a700490b825008",
+  "shared_unit_checks": 22,
+  "reminder_integration_checks": 66,
+  "ui_checks": 185,
+  "camera_lifecycle_simulated_checks": 38,
+  "packaged_self_test": {
+    "passed": true,
+    "checks": 62
+  },
+  "packaged_camera_smoke": {
+    "passed": true,
+    "checks": 45,
+    "frames": 17,
+    "samples": 25,
+    "face_seen": false,
+    "running_sessions": 2
+  },
+  "limits": [
+    "No face seen during the 12-second real-camera smoke test; this is capture/reopen evidence, not detection accuracy.",
+    "No live 20-minute microbreak test. No macOS runtime validation. Remaining F2 gaps are documented."
+  ]
+}
