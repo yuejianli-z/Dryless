@@ -7,27 +7,30 @@ import theme as T
 from microbreak import PRESENCE_MINUTES
 from widgets.soft_icon import SoftIcon
 
-SOURCE = 'https://www.mayoclinic.org/diseases-conditions/eyestrain/diagnosis-treatment/drc-20372403'
+# Reviewed 2026-09-13. Concise paraphrases of patient-facing eye-care guidance.
+SOURCES = (
+    'https://www.worcsacute.nhs.uk/leaflets/dry-eye-and-blepharitis-treatment-guide/',
+    'https://www.mayoclinic.org/diseases-conditions/eyestrain/diagnosis-treatment/drc-20372403',
+    'https://www.gloshospitals.nhs.uk/your-visit/patient-information-leaflets/dry-eye/',
+)
 TIPS = (
-    ('eye', ('自然轻眨', 'Blink naturally'),
-     ('看屏幕时，记得自然眨眼，让眼睛保持湿润。', 'While using your screen, remember to blink naturally.')),
-    ('distance', ('看向远处', 'Look into the distance'),
-     (f'每 {PRESENCE_MINUTES} 分钟，看约 6 米远处至少 20 秒。', f'Every {PRESENCE_MINUTES} min, look about 6 m away for at least 20 sec.')),
-    ('sun', ('柔和的光线', 'Softer light'),
-     ('调整屏幕亮度与位置，减少刺眼的反光。', 'Adjust screen brightness and position to reduce glare.')),
-    ('air', ('避开直吹', 'Avoid direct airflow'),
-     ('避免风扇或空调气流直接吹向眼睛。', 'Keep fans and air vents from blowing toward your eyes.')),
+    ('eye', ('自然轻眨', 'Gentle blinks'),
+     ('轻柔地完整眨眼，让上下眼睑自然闭合。', 'Blink gently, letting your eyelids close fully.')),
+    ('distance', ('远眺休息', 'Look away'),
+     (f'每 {PRESENCE_MINUTES} 分钟，看约 6 米远处至少 20 秒。', f'Every {PRESENCE_MINUTES} min, look 6 m away for at least 20 sec.')),
+    ('eye_closed', ('短暂闭眼', 'Rest your eyes'),
+     ('用眼间隙，轻闭双眼 10 秒，再自然睁开。', 'Between tasks, close your eyes gently for 10 sec.')),
 )
 
 class _Pages(QWidget):
     def __init__(self, parent=None):
         super().__init__(parent)
         self.index = 0
-        self.setFixedSize(50, 12)
+        self.setFixedSize(len(TIPS) * 12 + 2, 12)
     def paintEvent(self, event):
         p = QPainter(self); p.setRenderHint(QPainter.RenderHint.Antialiasing)
         p.setPen(Qt.PenStyle.NoPen)
-        for i in range(4):
+        for i in range(len(TIPS)):
             p.setBrush(QColor(T.BRAND if i == self.index else '#B9CDB7'))
             p.drawRoundedRect(QRectF(i * 12, 3, 10 if i == self.index else 5, 5), 2.5, 2.5)
 
@@ -75,7 +78,7 @@ class CareTips(QFrame):
         self._title.setText(title[lang]); self._body.setText(body[lang])
         self._icon._name = glyph; self._icon.update()
         self._pages.index = self._index; self._pages.update()
-        self.setAccessibleName(('护眼小贴士', 'Eye-care tip')[lang] + f' {self._index+1}/4 · ' + title[lang])
+        self.setAccessibleName(('护眼小贴士', 'Eye-care tip')[lang] + f' {self._index+1}/{len(TIPS)} · ' + title[lang])
         self.setAccessibleDescription(body[lang])
         self.setToolTip(('每20秒轮播，悬停暂停；方向键可切换。', 'Changes every 20 seconds. Hover to pause; use arrow keys to browse.')[lang])
 

@@ -8,6 +8,7 @@ from PyQt6.QtGui import QEnterEvent, QFontMetrics
 from PyQt6.QtCore import Qt,QEvent,QPointF,QPoint,QRect
 from PyQt6.QtTest import QTest
 import ui,config
+from widgets.care_tips import TIPS
 from main import GLOBAL_QSS
 app=QApplication([]);app.setStyle('Fusion');ui.load_bundled_fonts();app.setFont(ui.fnt(13));app.setStyleSheet(GLOBAL_QSS)
 report={'checks':[]}
@@ -27,7 +28,7 @@ try:
  check('visible card schedules carousel',tips._timer.isActive())
  index=tips._index
  QTest.qWait(20500)
- check('real twenty-second automatic advance',tips._index==(index+1)%4)
+ check('real twenty-second automatic advance',tips._index==(index+1)%len(TIPS))
  # Subsequent timer edge cases run faster while exercising the same Qt callbacks.
  tips._timer.setInterval(40)
  QApplication.sendEvent(tips,QEnterEvent(QPointF(),QPointF(),QPointF()))
@@ -38,7 +39,7 @@ try:
  tips.setFocus();settle();index=tips._index;QTest.qWait(100)
  check('keyboard focus pauses',tips.hasFocus() and not tips._timer.isActive() and tips._index==index)
  QTest.keyClick(tips,Qt.Key.Key_Right)
- check('keyboard navigation without buttons',tips._index==(index+1)%4)
+ check('keyboard navigation without buttons',tips._index==(index+1)%len(TIPS))
  tips.clearFocus();settle();tips.setAlertActive(True);index=tips._index;QTest.qWait(100)
  check('active reminder holds content',not tips._timer.isActive() and tips._index==index)
  tips.setAlertActive(False);settle();check('reminder end resumes',tips._timer.isActive())
@@ -61,7 +62,7 @@ try:
     else:check(f'{width}-{page}-language-fixed-top',rects==positions[key])
    w._on_nav('monitor');settle()
    bounds=tips.geometry()
-   for index in range(4):
+   for index in range(len(TIPS)):
     tips._index=index;tips.retranslate();settle()
     check(f'{lang}-{width}-tip-{index}-fixed-height',tips.geometry()==bounds)
     body=tips._body;fm=QFontMetrics(body.font())
