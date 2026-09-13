@@ -156,6 +156,7 @@ class SettingsScreen(QWidget):
         self._copy = []
         self._steppers = []
         self._preview_token = None
+        self._preview_sequence = False
         self._preview_stage = 0
         self._preview_error = False
         self._res = f"{config.CAMERA_WIDTH}×{config.CAMERA_HEIGHT}"
@@ -239,7 +240,7 @@ class SettingsScreen(QWidget):
         self._theme_buttons = {}
         theme_row = QHBoxLayout()
         theme_row.setSpacing(8)
-        for key, zh, en in (("polite", "Polite", "Polite"), ("sharp", "Sharp", "Sharp"), ("original", "原版", "Original"), ("blip", "Blip", "Blip")):
+        for key, zh, en in (("polite", "Polite", "Polite"), ("sharp", "Sharp", "Sharp"), ("original", "Ding", "Ding"), ("blip", "Blip", "Blip")):
             button = self._button(checkable=True)
             button.setFixedHeight(38)
             self._bind(button, zh, en, fixed_width=False)
@@ -594,6 +595,7 @@ class SettingsScreen(QWidget):
         config.SOUND_THEME = theme
         save_config()
         self._refresh_choices()
+        self._start_preview(sequence=False)
 
     def _preview_failed(self, message):
         self._preview_error = True
@@ -601,24 +603,32 @@ class SettingsScreen(QWidget):
         self._audio_note.setAccessibleDescription(message)
 
     def _toggle_preview(self):
-        if self._preview_token is not None:
+        if self._preview_token is not None and self._preview_sequence:
             self._stop_preview()
             return
+        self._start_preview(sequence=True)
+
+    def _start_preview(self, sequence):
         from alert import AUDIO, sound_file
+        self._stop_preview()
         self._preview_error = False
+        self._preview_stage = 0
+        self._preview_sequence = sequence
+        self._audio_note.setAccessibleDescription("")
         try:
             self._preview_token = AUDIO.play(
-                [sound_file(i) for i in range(3)], self, priority=2,
+                [sound_file(i) for i in (range(3) if sequence else (0,))], self, priority=2,
                 on_stage=self.previewStage.emit, on_finished=self.previewFinished.emit,
                 on_error=self.soundPreviewFailed.emit)
+            self._refresh_audio_copy()
             if self._preview_token is None:
                 self._audio_note.setText(_tr("微休息提示结束后可试听", "Preview after the break cue ends"))
-            self._preview_button.setText(_tr("停止试听", "Stop preview") if self._preview_token else _tr("试听三档", "Play all 3"))
         except Exception as error:
+            self._preview_sequence = False
             self._preview_failed(str(error))
 
     def _preview_progress(self, token, stage):
-        if token == self._preview_token:
+        if token == self._preview_token and self._preview_sequence:
             self._preview_stage = stage
             self._audio_note.setText(_tr(
                 ("首次提示", "第二次提示", "第三次提示")[stage],
@@ -627,19 +637,21 @@ class SettingsScreen(QWidget):
     def _preview_finished(self, token):
         if token == self._preview_token:
             self._preview_token = None
+            self._preview_sequence = False
             self._refresh_audio_copy()
 
     def _stop_preview(self):
         from alert import AUDIO
         self._preview_token = None
+        self._preview_sequence = False
         AUDIO.stop(self)
         self._refresh_audio_copy()
 
     def _refresh_audio_copy(self):
-        self._preview_button.setText(_tr("停止试听", "Stop preview") if self._preview_token else _tr("试听三档", "Play all 3"))
+        self._preview_button.setText(_tr("停止试听", "Stop preview") if self._preview_token and self._preview_sequence else _tr("试听三档", "Play all 3"))
         if self._preview_error:
             return
-        if self._preview_token:
+        if self._preview_token and self._preview_sequence:
             self._preview_progress(self._preview_token, self._preview_stage)
         else:
             self._audio_note.setText(_tr("三档依次试听 · 档位间停顿 0.8 秒", "Three stages · 0.8 s between cues"))

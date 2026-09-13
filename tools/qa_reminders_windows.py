@@ -10,7 +10,7 @@ sys.path.insert(0, str(ROOT))
 import config, alert, ui
 from microbreak import MicrobreakController
 from PyQt6.QtWidgets import QApplication
-from PyQt6.QtCore import Qt
+from PyQt6.QtCore import QCoreApplication, QEvent, Qt
 from PyQt6.QtTest import QTest
 from main import GLOBAL_QSS
 report = []
@@ -118,7 +118,8 @@ try:
     window.resize(1100,700);window._on_nav('settings');settle();settings=window.settings
     check('four equal selector widths',max(b.width() for b in settings._theme_buttons.values())-min(b.width() for b in settings._theme_buttons.values())<=1)
     for family in alert.SOUND_THEMES:
-        settings._select_sound(family)
+        with patch.object(alert.winsound,'PlaySound'):
+            settings._select_sound(family)
         check(f'{family} selection persists',json.loads((Path(profile.name)/'config.json').read_text())['SOUND_THEME']==family and sum(b.isChecked() for b in settings._theme_buttons.values())==1)
     rects=[]
     for language in ('zh','en'):
@@ -131,7 +132,7 @@ try:
         settings._toggle_preview();settle()
         check('native play-all starts',settings._preview_token is not None)
         settings._select_sound('polite');settle()
-        check('selecting another sound stops audition',settings._preview_token is None and alert.AUDIO.current is None)
+        check('selecting another sound replaces sequence with one cue',settings._preview_token is not None and not settings._preview_sequence and alert.AUDIO.current is not None)
         settings._toggle_preview();settle();settings._show_tab(1);settle()
         check('changing settings tab stops audition',settings._preview_token is None)
         settings._show_tab(0);settings._toggle_preview();settle();window._on_nav('monitor');settle()
@@ -144,6 +145,8 @@ try:
         check(f'{language} microbreak guidance retained',('20' in window.monitor._message_body.text()))
         window.grab().save(str(HERE/f'microbreak-{language}.png'))
 finally:
-    alert.AUDIO.stop();window.close();app.processEvents();profile.cleanup()
+    alert.AUDIO.stop();window.close();window.deleteLater()
+    QCoreApplication.sendPostedEvents(None,QEvent.Type.DeferredDelete)
+    app.processEvents();profile.cleanup()
 (HERE/'qa-report.json').write_text(json.dumps(report,indent=2),encoding='utf-8')
 print(json.dumps(dict(passed=len(report),failed=[r for r in report if not r['passed']]),ensure_ascii=False))
