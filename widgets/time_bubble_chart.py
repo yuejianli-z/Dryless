@@ -5,13 +5,12 @@ area is proportional to recorded minutes, including minutes with zero blinks.
 """
 from __future__ import annotations
 
-import html
 import math
 from datetime import timedelta
 
 from PyQt6.QtCore import QEvent, Qt, QPointF, QRectF, QSize, QSizeF, pyqtSignal
 from PyQt6.QtGui import QColor, QFont, QLinearGradient, QPainter, QPainterPath, QPen
-from PyQt6.QtWidgets import QWidget, QVBoxLayout, QScrollArea, QFrame, QSizePolicy, QToolTip
+from PyQt6.QtWidgets import QWidget, QVBoxLayout, QScrollArea, QFrame, QSizePolicy, QLabel
 
 import config
 import theme as T
@@ -88,10 +87,21 @@ class TimeBubbleChart(QWidget):
         # QScrollArea.setWidget enables auto-fill; preserve the parent card surface.
         self.canvas.setAutoFillBackground(False)
         self.scroll.viewport().setAutoFillBackground(False)
-        self.scroll.horizontalScrollBar().valueChanged.connect(lambda _: QToolTip.hideText())
         layout.addWidget(self.scroll, 1)
         self.legend = _BubbleLegend(self)
         layout.addWidget(self.legend)
+        # A permanent two-line readout keeps exact values available without
+        # covering data or changing chart geometry on hover/keyboard selection.
+        self.detail = QLabel(self)
+        self.detail.setFont(_font(11))
+        self.detail.setTextFormat(Qt.TextFormat.PlainText)
+        self.detail.setAlignment(Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter)
+        self.detail.setFixedHeight(42)
+        self.detail.setSizePolicy(QSizePolicy.Policy.Ignored, QSizePolicy.Policy.Fixed)
+        self.detail.setStyleSheet(f"color: {T.C_TEXT2}; background: transparent; border: none;")
+        self.detail.setContentsMargins(0, 3, 0, 0)
+        layout.addWidget(self.detail)
+        self._show_detail()
         self.setAccessibleName(self._tr("眨眼时间气泡图", "Blink frequency timeline"))
 
     def _tr(self, zh, en):
@@ -105,6 +115,7 @@ class TimeBubbleChart(QWidget):
         self.setAccessibleName(self._tr("眨眼时间气泡图", "Blink frequency timeline"))
         self.canvas.update()
         self.legend.update()
+        self._show_detail()
 
     def set_data(self, points, grain, mean=None, reference=16.0, axis_max=None):
         if grain not in ("hour", "day", "week", "month"):
@@ -152,6 +163,7 @@ class TimeBubbleChart(QWidget):
         self.scroll.horizontalScrollBar().setValue(0)
         self.canvas.update()
         self.legend.update()
+        self._show_detail()
 
     @staticmethod
     def _valid(row):
@@ -177,21 +189,29 @@ class TimeBubbleChart(QWidget):
             return f"{start:%Y-%m-%d}"
         return f"{start:%Y-%m-%d} — {end:%Y-%m-%d}"
 
-    def _tooltip(self, row):
-        title = html.escape(self._period_label(row))
-        values = [(self._tr("平均频率", "Average frequency"),
-                   self._tr(f"{row['average']:.1f} 次/记录分钟", f"{row['average']:.1f} / recorded min")),
-                  (self._tr("记录时长", "Recorded duration"), self._duration(row["minutes"]))]
-        if row.get("total") is not None:
-            values.append((self._tr("眨眼总数", "Total blinks"), f"{row['total']:,}"))
-        if self._grain != "hour":
-            values.append((self._tr("有记录天数", "Days with records"),
-                           f"{row.get('recorded_days', 0)} / {row.get('calendar_days', 1)}"))
-        body = "".join(f"<tr><td style='color:#D3D1CB;padding-right:20px'>{html.escape(k)}</td>"
-                       f"<td align='right'>{html.escape(v)}</td></tr>" for k, v in values)
-        note = self._tr("仅覆盖部分周期", "Partial period") if row.get("partial") else ""
-        action = self._tr("点击或按 Enter 展开", "Click or press Enter to explore") if self._grain != "hour" else ""
-        return f"<b>{title}</b><table cellspacing='4'>{body}</table><small>{note}{' · ' if note and action else ''}{action}</small>"
+    def _show_detail(self, index=-1):
+        if index < 0:
+            index = self.canvas._selected
+        if index < 0:
+            index = next((i for i in range(len(self._points) - 1, -1, -1)
+                          if self._valid(self._points[i])), -1)
+        if index < 0 or index >= len(self._points):
+            self.detail.setText(self._tr("暂无记录", "No records yet"))
+            return
+        row = self._points[index]
+        first = [self._period_label(row),
+                 self._tr(f"平均 {row['average']:.1f} 次/分", f"Average {row['average']:.1f}/min"),
+                 self._tr("记录 ", "Recorded ") + self._duration(row['minutes'])]
+        second = []
+        if row.get('total') is not None:
+            second.append(self._tr(f"眨眼 {row['total']:,} 次", f"{row['total']:,} blinks"))
+        if self._grain != 'hour':
+            days = f"{row.get('recorded_days', 0)}/{row.get('calendar_days', 1)}"
+            second.append(self._tr(f"记录 {days} 天", f"{days} days recorded"))
+        if row.get('partial'):
+            second.append(self._tr("部分周期", "Partial period"))
+        self.detail.setText("   ·   ".join(first) + "\n" + "   ·   ".join(second))
+        self.detail.setAccessibleName(self.detail.text())
 
 
 class _BubbleCanvas(QWidget):
@@ -208,7 +228,6 @@ class _BubbleCanvas(QWidget):
         self.setMouseTracking(True)
         self.setFocusPolicy(Qt.FocusPolicy.StrongFocus)
         self.setAccessibleName(chart._tr("气泡图，方向键选择，回车展开", "Timeline. Arrow keys select, Enter explores."))
-        self.setStyleSheet("QToolTip { color: #FFFFFF; background: #37352F; border: 1px solid #787774; padding: 10px; }")
 
     def paintEvent(self, event):
         c, rows = self.chart, self.chart._points
@@ -344,10 +363,6 @@ class _BubbleCanvas(QWidget):
                       if math.hypot(position.x() - point.x(), position.y() - point.y()) <= max(radius + 3, 8)]
         return min(candidates)[1] if candidates else -1
 
-    def _show_tip(self, index, global_position):
-        if index >= 0:
-            QToolTip.showText(global_position, self.chart._tooltip(self.chart._points[index]), self)
-
     def mouseMoveEvent(self, event):
         index = self._hit(event.position())
         if index != self._hovered:
@@ -355,14 +370,14 @@ class _BubbleCanvas(QWidget):
             self.update()
         self.setCursor(Qt.CursorShape.PointingHandCursor if index >= 0 and self.chart._grain != "hour" else Qt.CursorShape.ArrowCursor)
         if index >= 0:
-            self._show_tip(index, event.globalPosition().toPoint())
+            self.chart._show_detail(index)
         else:
-            QToolTip.hideText()
+            self.chart._show_detail()
         super().mouseMoveEvent(event)
 
     def leaveEvent(self, event):
         self._hovered = -1
-        QToolTip.hideText()
+        self.chart._show_detail()
         self.update()
         super().leaveEvent(event)
 
@@ -371,10 +386,11 @@ class _BubbleCanvas(QWidget):
             index = self._hit(event.position())
             if index >= 0:
                 self._selected = index
+                self.chart._show_detail(index)
                 self.setFocus(Qt.FocusReason.MouseFocusReason)
                 self.update()
                 if self.chart._grain != "hour":
-                    QToolTip.hideText()
+                    self.chart._show_detail()
                     self.chart.periodClicked.emit(self.chart._points[index])
                 return
         super().mousePressEvent(event)
@@ -394,22 +410,22 @@ class _BubbleCanvas(QWidget):
                 self._selected = indexes[max(0, min(len(indexes) - 1, indexes.index(self._selected) + move))]
             center = next(point for index, point, _ in self._hits if index == self._selected)
             self.chart.scroll.ensureVisible(round(center.x()), round(center.y()), 65, 30)
-            self._show_tip(self._selected, self.mapToGlobal(center.toPoint()))
+            self.chart._show_detail(self._selected)
             self.update()
             event.accept()
             return
         if key in (Qt.Key.Key_Return, Qt.Key.Key_Enter, Qt.Key.Key_Space) and self._selected >= 0:
             if self.chart._grain != "hour":
-                QToolTip.hideText()
+                self.chart._show_detail()
                 self.chart.periodClicked.emit(self.chart._points[self._selected])
             event.accept()
             return
         if key == Qt.Key.Key_Escape:
-            QToolTip.hideText()
+            self.chart._show_detail()
         super().keyPressEvent(event)
 
     def focusOutEvent(self, event):
-        QToolTip.hideText()
+        self.chart._show_detail()
         self.update()
         super().focusOutEvent(event)
 
@@ -422,13 +438,13 @@ class _BubbleLegend(QWidget):
 
     def event(self, event):
         if event.type() == QEvent.Type.ToolTip:
-            QToolTip.hideText()
+            self.chart._show_detail()
             event.accept()
             return True
         return super().event(event)
 
     def enterEvent(self, event):
-        QToolTip.hideText()
+        self.chart._show_detail()
         super().enterEvent(event)
 
     def paintEvent(self, event):

@@ -9,7 +9,7 @@ _STRINGS = {
         "nav_settings": "设置",
         # sidebar
         "app_name":         "Dryless",
-        "subtitle":         "多眨一眼，少一分干涩",
+        "subtitle":         "多眨眼，少干涩",
         "main_menu":        "主菜单",
         "face_locked":      "人脸已锁定",
         "face_none":        "未识别到人脸",

@@ -47,6 +47,7 @@ class StyledMenu(QMenu):
     """QMenu behavior with a rounded surface, consistent rows and check marks."""
     def __init__(self, parent=None, font=None):
         super().__init__(parent)
+        self.setToolTipsVisible(False)
         self.setWindowFlags(Qt.WindowType.Popup | Qt.WindowType.FramelessWindowHint | Qt.WindowType.NoDropShadowWindowHint)
         self.setAttribute(Qt.WidgetAttribute.WA_TranslucentBackground)
         self._row_style = _MenuStyle(self)

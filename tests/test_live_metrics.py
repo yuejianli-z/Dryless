@@ -48,7 +48,7 @@ class LiveMetricsTests(unittest.TestCase):
     def test_boundary_blink_goes_to_new_minute_without_losing_first(self):
         w = BlinkWindows(0)
         for second in range(61):
-            result = w.sample(second, True, second in (0, 60))
+            result = w.sample(second, True, second in (1, 60))
         self.assertEqual(result['completed'][0].blinks, 1)
         for second in range(61, 121):
             result = w.sample(second, True, False)
@@ -68,7 +68,27 @@ class LiveMetricsTests(unittest.TestCase):
         result = w.sample(281.123, True, True)
         self.assertEqual([m.index for m in result['completed']], [0, 1, 2])
         self.assertTrue(all(m.valid_seconds == 0 and m.blinks == 0 for m in result['completed']))
-        self.assertEqual(result['blinks'], 1)
+        self.assertEqual(result['blinks'], 0)
+
+    def test_events_after_reacquisition_share_the_exposure_gate(self):
+        w = BlinkWindows(0)
+        w.sample(0, True, False)
+        for second in range(1, 31):
+            w.sample(second, True, second <= 10)
+        w.sample(31, False, True)
+        result = w.sample(32, True, True)
+        self.assertEqual(result['blinks'], 10)
+        self.assertEqual(result['valid_seconds'], 30)
+        self.assertEqual(result['rate'], 20)
+        result = w.sample(33, True, True)
+        self.assertEqual(result['blinks'], 11)
+        self.assertEqual(result['valid_seconds'], 31)
+
+    def test_event_at_duplicate_timestamp_is_not_counted_twice(self):
+        w = BlinkWindows(0)
+        w.sample(0, True, False)
+        w.sample(1, True, True)
+        self.assertEqual(w.sample(1, True, True)['blinks'], 1)
 
     def test_monotonic_order_required(self):
         w = BlinkWindows(0)

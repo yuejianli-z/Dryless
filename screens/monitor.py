@@ -2,7 +2,7 @@
 from __future__ import annotations
 
 import math
-from PyQt6.QtCore import Qt, QPointF, QTimer, pyqtSignal
+from PyQt6.QtCore import Qt, QPointF, QTimer, pyqtSignal, QSize
 from PyQt6.QtGui import QFont, QPainter, QColor, QPen
 from PyQt6.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout, QLabel, QFrame, QPushButton,
@@ -16,7 +16,7 @@ from widgets import CameraView, TrendChart
 from widgets.selection_popup import StyledComboBox
 from widgets.status_light import StatusLight, state_color
 from widgets.camera_sim import AspectRatioHost
-from widgets.soft_icon import SoftIcon
+from widgets.soft_icon import SoftIcon, icon
 from widgets.care_tips import CareTips
 from widgets.monitor_metrics import MonitorMetrics
 
@@ -419,7 +419,7 @@ class MonitorScreen(QWidget):
         self._preview_button.setEnabled(running)
         self._camera_stack.setCurrentIndex(0 if running and self._preview_visible else 1)
         self._preview_hidden_title.setText(_tr("预览已隐藏", "Preview hidden") if running else _tr("摄像头未开启", "Camera is off"))
-        self._preview_hidden_text.setText(_tr("隐藏画面不会停止检测。", "Hiding the image does not stop detection.") if running else _tr("点击右上角开启摄像头。", "Use Start camera above to begin."))
+        self._preview_hidden_text.setText(_tr("隐藏画面不会停止检测。", "Hiding the image does not stop detection.") if running else _tr("点击右上角开启摄像头。", "Use the camera button above to begin."))
         if self._camera_state in ("starting", "stopping"):
             self._preview_hidden_title.setText(_tr("正在连接…", "Connecting…") if self._camera_state == "starting" else _tr("正在关闭…", "Stopping…"))
             self._preview_hidden_text.setText(_tr("请稍候。", "Please wait."))
@@ -428,18 +428,20 @@ class MonitorScreen(QWidget):
             self._preview_hidden_text.setText(_tr("检查设备后，点击右上角重试。", "Check your device, then click the camera control above."))
         self._preview_button.setText(_tr("隐藏预览", "Hide") if self._preview_visible else _tr("显示预览", "Show"))
         self._pause_button.setText(_tr("恢复提醒", "Resume alerts") if self._paused else _tr("暂停提醒", "Pause alerts"))
-        self._sound_button.setText(_tr("声音：开", "Sound: on") if self._sound_enabled else _tr("声音：关", "Sound: off"))
+        sound_label = _tr("声音：开", "Sound: on") if self._sound_enabled else _tr("声音：关", "Sound: off")
         if self._alert_error:
-            self._sound_button.setText(_tr("声音：故障", "Sound: error"))
+            sound_label = _tr("声音：故障", "Sound: error")
+        self._sound_button.setText("")
+        self._sound_button.setIcon(icon("sound" if self._sound_enabled and not self._alert_error else "sound_off", 18))
+        self._sound_button.setIconSize(QSize(18, 18))
         self._sound_button.setEnabled(not self._alert_error)
-        self._preview_button.setToolTip(_tr("仅隐藏画面，摄像头检测继续运行。", "Hide the image only. Camera detection keeps running."))
-        self._pause_button.setToolTip(_tr("暂停声音和界面提醒，检测与计数继续。", "Pause sound and visual alerts. Detection and counts continue."))
-        self._sound_button.setToolTip("")
-        self._sound_button.setAccessibleName(self._sound_button.text())
+        self._preview_button.setAccessibleDescription(_tr("仅隐藏画面，摄像头检测继续运行。", "Hide the image only. Camera detection keeps running."))
+        self._pause_button.setAccessibleDescription(_tr("暂停声音和界面提醒，检测与计数继续。", "Pause sound and visual alerts. Detection and counts continue."))
+        self._sound_button.setAccessibleName(sound_label)
         self._sound_button.setAccessibleDescription(self._alert_error or "")
 
     def _error_message(self, message, audio=False):
-        """Keep a readable reason in the status area and the full error in its tooltip."""
+        """Keep a readable reason in the status area and the full error in its accessible description."""
         text = " ".join(str(message).split())
         lower = text.lower()
         if any(word in lower for word in ("permission", "access denied", "权限", "denied")):
@@ -513,7 +515,7 @@ class MonitorScreen(QWidget):
         self._status_dot.setState(status_key)
         self._status_lbl.setStyleSheet(f"color:{state_color(status_key).name()};background:transparent;border:none;")
         self._message_body.setText(body)
-        self._message_body.setToolTip("\n".join(message for message in (self._error, self._alert_error) if message))
+        self._message_body.setAccessibleDescription("\n".join(message for message in (self._error, self._alert_error) if message))
         samples = getattr(self, '_live_samples', [])[-self.trend.windowMinutes():]
         available = [item for item in samples if item is not None]
         duration = sum(item[1] for item in available)
@@ -549,7 +551,7 @@ class MonitorScreen(QWidget):
         self._stats_button.setText(_tr("更多统计", "More statistics"))
         self._trend_title.setText(_tr("眨眼节律", "Blink rhythm"))
         self._frequency_unit.setText(_tr("次/分 · 均值", "/min · avg"))
-        self._frequency_value.setToolTip(_tr("按图中时间窗口加权；单分钟有效识别不足30秒时留空。", "Weighted over the chart window. Minutes with under 30 seconds of valid tracking are left blank."))
+        self._frequency_value.setAccessibleDescription(_tr("按图中时间窗口加权；单分钟有效识别不足30秒时留空。", "Weighted over the chart window. Minutes with under 30 seconds of valid tracking are left blank."))
         selected = self._window_combo.currentData()
         self._window_combo.blockSignals(True)
         self._window_combo.clear()

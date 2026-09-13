@@ -185,7 +185,7 @@ class TitleBar(QFrame):
 
         self._camera_btn = QPushButton()
         self._camera_btn.setFont(T.ui_font(T.TYPE_CONTROL, 500))
-        self._camera_btn.setFixedSize(148, 34)
+        self._camera_btn.setFixedSize(32, 28)
         self._camera_btn.setCursor(Qt.CursorShape.PointingHandCursor)
         self._camera_btn.clicked.connect(self.cameraToggled.emit)
         lay.addWidget(self._camera_btn)
@@ -277,7 +277,7 @@ class TitleBar(QFrame):
     def setSoundControl(self, button):
         self._sound_btn = button
         self._control_layout.insertWidget(1, button)
-        button.setFixedSize(148, 34)
+        button.setFixedSize(32, 28)
         button.setSizePolicy(QSizePolicy.Policy.Fixed, QSizePolicy.Policy.Fixed)
         button.setStyleSheet(self._control_style())
         button.setToolTip("")
@@ -292,8 +292,10 @@ class TitleBar(QFrame):
             "stopping": ("摄像头：关闭中", "Camera: stopping"),
             "error": ("摄像头：故障", "Camera: error"),
         }
-        self._camera_btn.setText(labels[state][0 if zh else 1])
-        self._camera_btn.setAccessibleName(self._camera_btn.text())
+        self._camera_btn.setText("")
+        self._camera_btn.setIcon(icon("camera" if state == "running" else "camera_off", 18))
+        self._camera_btn.setIconSize(QSize(18, 18))
+        self._camera_btn.setAccessibleName(labels[state][0 if zh else 1])
         self._camera_btn.setAccessibleDescription(("点击切换；启动中点击可取消。" if zh else "Click to toggle; click during startup to cancel."))
         self._camera_btn.setEnabled(state != "stopping")
         self._camera_btn.setToolTip("")
@@ -301,10 +303,10 @@ class TitleBar(QFrame):
 
     @staticmethod
     def _control_style():
-        return (f"QPushButton{{background:{T.C_CARD};color:{T.C_TEXT};border:1px solid {T.C_BORDER};"
-                "border-radius:8px;padding:4px 8px;text-align:center;}"
+        return (f"QPushButton{{background:{T.C_CARD};color:{T.C_TEXT};border:none;"
+                "border-radius:8px;padding:0px;text-align:center;}"
                 f"QPushButton:hover{{background:{T.C_SURFACE};}}"
-                f"QPushButton:focus{{border-color:{T.CONTROL_FOCUS};}}"
+                f"QPushButton:focus{{border:1px solid {T.CONTROL_FOCUS};}}"
                 f"QPushButton:disabled{{color:{T.C_TEXT3};background:{T.C_SURFACE};}}")
 
     def setPageHeader(self, header):

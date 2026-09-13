@@ -9,7 +9,7 @@ os.environ['DRYLESS_DATA_DIR'] = profile.name
 import ui, config
 from main import GLOBAL_QSS
 from PyQt6.QtWidgets import QApplication, QToolTip
-from PyQt6.QtCore import QEvent, QPoint, Qt
+from PyQt6.QtCore import QCoreApplication, QEvent, QPoint, Qt
 from PyQt6.QtGui import QHelpEvent
 from PyQt6.QtTest import QTest
 from widgets.time_bubble_chart import TimeBubbleChart, _color, COLOR_HIGH
@@ -24,6 +24,16 @@ w._set_camera_state('running');w._accept_camera=True
 base=dict(face=True, eye_ratio=.8, eye_open=True, rate=45., rolling_rate=45., rolling_valid_seconds=60., no_blink=9., reminder_elapsed=9., total=900, session_sec=4000, alert_level=0, microbreak_presence=300., minute_history=[12, 22], minute_valid_seconds=[60,60])
 screen=w.monitor;metrics=screen.metrics
 try:
+    from live_metrics import BlinkWindows
+    windows = BlinkWindows(0)
+    for second in range(61):
+        actual = windows.sample(second, second <= 30, 0 < second <= 10)
+    minute = actual['completed'][0]
+    w._on_stats(dict(base, rolling_rate=actual['rate'], rolling_valid_seconds=actual['valid_seconds'],
+        minute_history=[minute.blinks], minute_valid_seconds=[minute.valid_seconds]))
+    check('10 blinks in 30 valid seconds ring equals 20', metrics.rate == 20)
+    check('10 blinks in 30 valid seconds tile equals 20', screen.trend._data == [20])
+    check('10 blinks in 30 valid seconds summary equals 20', screen._frequency_value.text() == '20.0')
     w._on_stats(base);app.processEvents()
     check('uncapped rolling value',metrics.rate==45)
     check('arc expands its labelled scale',metrics._ring_scale==60)
@@ -55,10 +65,12 @@ try:
         c=TimeBubbleChart();c.show();app.processEvents()
         app.sendEvent(c.legend,QHelpEvent(QEvent.Type.ToolTip,QPoint(20,20),c.legend.mapToGlobal(QPoint(20,20))))
         check('statistics legend has no hover popup',not popup.called and not QToolTip.isVisible())
-        c.close()
+        c.close();c.deleteLater()
     check('shared high colour softened',_color(22,16).name()==COLOR_HIGH.lower() and _color(22,16).saturationF()<.20)
 finally:
-    w.close();app.processEvents();profile.cleanup()
+    w.close();w.deleteLater()
+    QCoreApplication.sendPostedEvents(None,QEvent.Type.DeferredDelete)
+    app.processEvents();profile.cleanup()
 out=ROOT/'qa-output/live';out.mkdir(parents=True,exist_ok=True)
 (out/'report.json').write_text(json.dumps({'checks':checks,'hardware_used':False},ensure_ascii=False,indent=2),encoding='utf-8')
 print(json.dumps({'checks':len(checks),'failed':[c for c in checks if not c['pass']]},ensure_ascii=False))

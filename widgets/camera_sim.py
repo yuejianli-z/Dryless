@@ -112,7 +112,7 @@ class CameraView(QWidget):
 
     def setFrame(self, img: QImage):
         self._error = None
-        self.setToolTip("")
+        self.setAccessibleDescription("")
         self._frame = img if img is not None and not img.isNull() else None
         if self._frame is not None:
             ratio = self._frame.width() / self._frame.height()
@@ -129,7 +129,7 @@ class CameraView(QWidget):
 
     def setError(self, msg: str):
         self._error = msg
-        self.setToolTip(str(msg))
+        self.setAccessibleDescription(str(msg))
         self._frame = None
         self.update()
 

@@ -27,7 +27,6 @@ QScrollBar::handle:vertical:hover { background:rgba(0,0,0,64); }
 QScrollBar::add-line:vertical, QScrollBar::sub-line:vertical,
 QScrollBar::add-page:vertical, QScrollBar::sub-page:vertical { background:none; border:none; height:0; }
 QScrollBar:horizontal { height:0px; }
-QToolTip { background:#1A1816; color:#FFFFFF; border:1px solid #2A2824; padding:6px 10px; }
 QMenu { background:#FBFDFC; border:1px solid #DDE7DF; border-radius:8px; padding:5px; }
 QMenu::item { padding:8px 24px; }
 QMenu::item:selected { background:#E3EEE6; color:#1A1A1A; }
@@ -70,12 +69,12 @@ def create_tray(app, window, icon):
         }
         for key, action in actions.items():
             action.setText(labels[key][0 if zh else 1])
-        actions['camera'].setText(window.titlebar._camera_btn.text())
+        actions['camera'].setText(window.titlebar._camera_btn.accessibleName())
         actions['camera'].setEnabled(window.titlebar._camera_btn.isEnabled())
         actions['pause'].setEnabled(state == 'running')
         actions['pause'].setChecked(window._paused)
         actions['sound'].setChecked(config.SOUND_ENABLED)
-        actions['sound'].setText(window.monitor._sound_button.text())
+        actions['sound'].setText(window.monitor._sound_button.accessibleName())
         actions['camera'].setIcon(glyph_icon('eye_open' if state == 'running' else 'eye_closed', 20))
         pix = QPixmap(32, 32); pix.fill(Qt.GlobalColor.transparent)
         painter = QPainter(pix); painter.setRenderHint(QPainter.RenderHint.Antialiasing)
@@ -88,7 +87,7 @@ def create_tray(app, window, icon):
                 painter.setBrush(QColor('#FFFFFF'))
                 painter.drawRect(23, 23, 2, 6); painter.drawRect(27, 23, 2, 6)
         painter.end(); tray.setIcon(QIcon(pix))
-        tray.setToolTip('Dryless · ' + window.monitor._status_lbl.text())
+        tray.setToolTip('')
     actions['show'].triggered.connect(show_window)
     actions['camera'].triggered.connect(window.toggleCamera)
     actions['pause'].triggered.connect(lambda: window.setPaused(not window._paused))

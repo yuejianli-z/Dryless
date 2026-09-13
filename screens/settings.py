@@ -598,7 +598,7 @@ class SettingsScreen(QWidget):
     def _preview_failed(self, message):
         self._preview_error = True
         self._audio_note.setText(_tr("试听失败，请检查声音输出", "Preview failed. Check audio output"))
-        self._audio_note.setToolTip(message)
+        self._audio_note.setAccessibleDescription(message)
 
     def _toggle_preview(self):
         if self._preview_token is not None:
@@ -689,8 +689,8 @@ class SettingsScreen(QWidget):
             field_name = control.accessibleName()
             decrement.setAccessibleName(_tr("减少", "Decrease ") + field_name)
             increment.setAccessibleName(_tr("增加", "Increase ") + field_name)
-            decrement.setToolTip(decrement.accessibleName())
-            increment.setToolTip(increment.accessibleName())
+            decrement.setAccessibleDescription(decrement.accessibleName())
+            increment.setAccessibleDescription(increment.accessibleName())
         self._refresh_audio_copy()
         if self._preview_error:
             self._audio_note.setText(_tr(

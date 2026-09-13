@@ -233,7 +233,7 @@ class Sidebar(QWidget):
         self._status_key, self._status_label = key, label
         self._face_dot.setState(key)
         self._face_label.setText(label)
-        self._face_label.setToolTip(label)
+        self._face_label.setAccessibleDescription(label)
         self._face_label.setStyleSheet(
             f"color:{state_color(key).name()};font-size:12px;background:transparent;border:none;")
 

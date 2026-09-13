@@ -1,3 +1,3 @@
 """Shared release identity for both desktop platforms."""
-VERSION = "0.2.0-rc.7"
+VERSION = "0.2.0-rc.8"
 RELEASE_SERIES = "0.2.0"

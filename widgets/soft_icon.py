@@ -50,7 +50,10 @@ def _brand_eye_pixmap(color, pixel_size, closed=False):
 
 
 def _glyph(p, name):
-    pen = QPen(QColor(T.ICON_FG), 1.5)
+    off = name in ('camera_off', 'sound_off')
+    if off:
+        name = name.removesuffix('_off')
+    pen = QPen(QColor('#78977E' if name in ('camera', 'sound') else T.ICON_FG), 1.5)
     pen.setCapStyle(Qt.PenCapStyle.RoundCap)
     pen.setJoinStyle(Qt.PenJoinStyle.RoundJoin)
     p.setPen(pen)
@@ -102,6 +105,12 @@ def _glyph(p, name):
         for y, x in ((5,8),(10,13),(15,6)):
             p.drawLine(3,y,17,y)
             p.setBrush(QColor(T.ICON_BG));p.drawEllipse(QRectF(x-2,y-2,4,4));p.setBrush(Qt.BrushStyle.NoBrush)
+    if off:
+        # Same recognizable camera/speaker silhouette, with a muted red slash.
+        slash = QPen(QColor('#B56E67'), 1.8)
+        slash.setCapStyle(Qt.PenCapStyle.RoundCap)
+        p.setPen(slash)
+        p.drawLine(3, 3, 17, 17)
 
 
 def _paint(p, name, size, glyph_size, tile):

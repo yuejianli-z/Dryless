@@ -80,10 +80,10 @@ class _ComboBox(StyledComboBox):
 
 
 class _ElidedLabel(QLabel):
-    """A single-line status whose full message remains available on hover."""
+    """A single-line status whose full message is available to assistive technology."""
     def setText(self, text):
         self._full_text = text
-        self.setToolTip(text)
+        self.setAccessibleDescription(text)
         self._update_text()
 
     def _update_text(self):
@@ -161,7 +161,7 @@ class _Metric(Card):
         for label in (self._unit, self._secondary_value, self._secondary_unit):
             label.clear()
             label.hide()
-        self.setToolTip(note)
+        self.setAccessibleDescription(note)
         self.setAccessibleName(f"{title}: {value}. {note}")
         self._number_row.place()
 
@@ -339,7 +339,7 @@ class StatsScreen(QWidget):
         self._reference_note = _label(size=T.TYPE_CAPTION, color=T.C_TEXT2)
         self._reference_note.setFixedHeight(20)
         self._reference_note.setWordWrap(False)
-        self._reference_note.setToolTip('NEI: https://www.nei.nih.gov/eye-health-information/healthy-vision/nei-for-kids/visual-system')
+        self._reference_note.setAccessibleDescription('NEI: https://www.nei.nih.gov/eye-health-information/healthy-vision/nei-for-kids/visual-system')
         chart_card.layout().addWidget(self._reference_note)
         chart_card.layout().addSpacing(4)
         self._chart = TimeBubbleChart()
@@ -542,7 +542,7 @@ class StatsScreen(QWidget):
         self._range_label.setText(f"{self._start:%Y/%m/%d} — {self._end:%Y/%m/%d}")
         self._export_button.setText(_tr("导出 CSV", "Export CSV"))
         self._export_button.setEnabled(bool(minutes) and not self._load_error)
-        self._export_button.setToolTip(_tr("导出当前日期范围内已保存的逐分钟记录", "Export saved minute records in this date range"))
+        self._export_button.setAccessibleDescription(_tr("导出当前日期范围内已保存的逐分钟记录", "Export saved minute records in this date range"))
         contents = [
             (_tr("总眨眼", "Total blinks"), f"{total:,}" if minutes else "—", _tr("当前日期范围", "In this date range")),
             (_tr("记录时长", "Recorded time"), _duration(minutes), _tr("按已保存分钟计算", "Based on saved minutes")),
@@ -565,9 +565,9 @@ class StatsScreen(QWidget):
         self._chart.set_data(self._points, self._effective_grain, point_mean, axis_max=axis_max)
         self._chart.set_language()
         self._help_button.setAccessibleName(_tr("图表说明", "About this chart"))
-        self._help_button.setToolTip(_tr("查看计算方式、颜色与参考范围", "Frequency, colors and reference range"))
+        self._help_button.setAccessibleDescription(_tr("查看计算方式、颜色与参考范围", "Frequency, colors and reference range"))
         self._reference_note.setText(_tr('浅绿带：一般参考 15–20 次/分   ·   灰虚线：本期记录平均', 'Green band: general reference 15–20/min   ·   Dashed line: recorded average'))
-        self._metrics[3].setToolTip(_tr(f'总眨眼 {total:,} ÷ 记录分钟 {minutes:,}。按日、周、月分组不改变同一范围的平均。', f'{total:,} blinks ÷ {minutes:,} saved minutes. Grouping does not change the average.'))
+        self._metrics[3].setAccessibleDescription(_tr(f'总眨眼 {total:,} ÷ 记录分钟 {minutes:,}。按日、周、月分组不改变同一范围的平均。', f'{total:,} blinks ÷ {minutes:,} saved minutes. Grouping does not change the average.'))
         has_points = any(p["minutes"] for p in self._points)
         self._chart.setVisible(has_points and not self._load_error)
         self._empty.setVisible(not has_points or self._load_error)
@@ -580,8 +580,8 @@ class StatsScreen(QWidget):
             self._empty_title.setText(_tr("这些记录缺少小时信息", "These records have no hourly timestamps"))
             self._empty_description.setText(_tr("切换到按日、周或月，可以查看已有记录。", "Switch to day, week or month to view these records."))
         self._chart_note.setText(_tr(
-            "悬停查看数值 · 点击气泡展开 · 空白表示无记录，0 次记录保留 · 虚线轮廓表示部分周期",
-            "Hover for values · Click to explore · Gaps mean no records; recorded zeroes remain · Dashed outline: partial period"))
+            "数值显示在图内下方 · 点击气泡展开 · 空白表示无记录，0 次记录保留 · 虚线轮廓表示部分周期",
+            "Values appear below the chart · Click to explore · Gaps mean no records; recorded zeroes remain · Dashed outline: partial period"))
         self._chart_note.hide()
         self._explanation.setText(_tr(
             "频率 = 总眨眼 ÷ 记录分钟；面积表示累计记录时长。历史记录包含未识别人脸时段；参考带不代表个人健康范围。",
@@ -602,13 +602,13 @@ class StatsScreen(QWidget):
             "气泡面积表示记录时长；红 → 黄 → 绿表示频率从低到高，不代表越高越健康。\n\n"
             "浅绿带固定为一般参考 15–20 次/分；灰色虚线随当前记录平均值变化。一般参考不代表个人健康范围。\n\n"
             "空白表示无记录，真实 0 次记录保留。历史记录可能包含未识别人脸的时段。\n\n"
-            "悬停查看数值，点击气泡展开更短周期；虚线轮廓表示仅覆盖部分周期。\n\n"
+            "数值显示在图内下方，点击气泡展开更短周期；虚线轮廓表示仅覆盖部分周期。\n\n"
             "一般参考来源：NEI · Visual System",
             "Frequency = total blinks ÷ saved minutes. Changing day/week/month grouping does not change the average for the same date range.\n\n"
             "Bubble area represents recorded time. Red → yellow → green shows lower to higher frequency, not a health score.\n\n"
             "The pale green band is a fixed general reference of 15–20/min. The dashed line follows the recorded average. The reference is not a personal health assessment.\n\n"
             "Gaps mean no records; real zeroes remain. Older saved records may include untracked time.\n\n"
-            "Hover for values; click a bubble to explore. Dashed outlines mark partial periods.\n\n"
+            "Values appear below the chart; click a bubble to explore. Dashed outlines mark partial periods.\n\n"
             "General reference: NEI · Visual System")
         QMessageBox.information(self, _tr("图表说明", "About this chart"), message)
 

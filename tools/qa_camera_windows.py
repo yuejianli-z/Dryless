@@ -7,7 +7,7 @@ sys.path.insert(0,str(ROOT))
 profile=tempfile.TemporaryDirectory(prefix='dryless-camera-qa-')
 os.environ['DRYLESS_DATA_DIR']=profile.name
 from PyQt6.QtWidgets import QApplication, QSystemTrayIcon
-from PyQt6.QtCore import Qt
+from PyQt6.QtCore import Qt, QCoreApplication, QEvent
 from PyQt6.QtTest import QTest
 from PyQt6.QtGui import QIcon
 import numpy as np
@@ -118,5 +118,12 @@ finally:
   window._tray_resident=False;window._quit_requested=False;window.close();app.processEvents()
  if tray:tray.hide()
  out=ROOT/'qa-output'/'camera-controls.json';out.parent.mkdir(exist_ok=True);out.write_text(json.dumps(report,indent=2),encoding='utf-8')
- print(json.dumps(report,ensure_ascii=False))
+ # Flush native destruction before interpreter shutdown (there is no app.exec).
+if tray:
+ tray.hide();tray.setContextMenu(None);tray.deleteLater()
+if window:
+ window.deleteLater()
+QCoreApplication.sendPostedEvents(None,QEvent.Type.DeferredDelete)
+app.processEvents()
+print(json.dumps(report,ensure_ascii=False))
 sys.exit(1 if report.get('error') or any(not c['pass'] for c in report['checks']) else 0)

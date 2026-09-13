@@ -14,6 +14,7 @@ import sys
 if sys.platform == "win32":
     os.environ.setdefault("QT_QPA_PLATFORM", "windows:fontengine=freetype")
 import time
+import math
 import threading
 from collections import deque
 
@@ -41,6 +42,7 @@ from i18n import t
 import theme as T
 from widgets import Sidebar, TitleBar, AlertStrip
 from widgets.window_frame import apply_window_shape
+from widgets.interaction_policy import install_no_hover_popups
 from screens.monitor import MonitorScreen
 from screens.stats import StatsScreen
 from screens.settings import SettingsScreen
@@ -243,7 +245,8 @@ class DetectorWorker(QThread):
                         break
 
                     sample_time = time.monotonic()
-                    sample_valid = self._detector.face_detected and self._detector._ratio is not None
+                    sample_valid = (self._detector.face_detected and self._detector._ratio is not None
+                                    and math.isfinite(self._detector._ratio))
                     live = windows.sample(sample_time, sample_valid, blinked)
                     level, micro = self._update_reminders(
                         self._detector.face_detected, blinked, no_blink_sec, sample_time)
@@ -312,6 +315,7 @@ class DrylessApp(QMainWindow):
 
     def __init__(self, start_worker=True):
         super().__init__()
+        install_no_hover_popups()
         self.setWindowTitle("Dryless")
         self.setWindowFlags(
             Qt.WindowType.FramelessWindowHint | Qt.WindowType.Window

@@ -38,7 +38,9 @@ class BlinkWindows:
         now = float(now)
         if not math.isfinite(now) or now < self.start or (self.previous is not None and now < self.previous):
             raise ValueError('Samples must have finite, monotonic times')
-        if self.previous is not None and valid and self.previous_valid and 0 < now-self.previous <= MAX_SAMPLE_GAP:
+        continuous = (self.previous is not None and valid and self.previous_valid
+                      and 0 < now-self.previous <= MAX_SAMPLE_GAP)
+        if continuous:
             begin = self.previous
             self.spans.append((begin, now))
             while begin < now:
@@ -47,7 +49,7 @@ class BlinkWindows:
                 bucket = self.buckets.setdefault(index, [0, 0.0])
                 bucket[1] += end-begin
                 begin = end
-        if valid and blinked:
+        if continuous and blinked:
             self.events.append(now)
             index = int((now-self.start)//60)
             self.buckets.setdefault(index, [0, 0.0])[0] += 1
