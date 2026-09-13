@@ -34,35 +34,81 @@ QMenu::item:selected { background:#E3EEE6; color:#1A1A1A; }
 """
 
 def create_tray(app, window, icon):
-    """All UI actions stay on Qt's GUI thread."""
+    """The tray and main window share the same camera and reminder state."""
+    from widgets.soft_icon import icon as glyph_icon
+    from PyQt6.QtGui import QPixmap, QPainter, QColor
+    from PyQt6.QtCore import Qt, QRectF
+    import theme as T
     tray = QSystemTrayIcon(icon, window)
-    tray.setToolTip('Dryless')
     menu = build_menu(window)
-    show_action = QAction(menu)
-    pause_action = QAction(menu)
-    pause_action.setCheckable(True)
-    quit_action = QAction(menu)
+    actions = {key: QAction(menu) for key in ('show', 'camera', 'pause', 'sound', 'quit')}
+    tray._actions = actions
+    actions['pause'].setCheckable(True)
+    actions['sound'].setCheckable(True)
     def show_window():
-        window.showNormal()
+        if window.isMinimized():
+            window.showNormal()
+        else:
+            window.show()
         window.raise_()
         window.activateWindow()
-    def refresh_labels():
+    def refresh(*_args):
         zh = config.LANGUAGE == 'zh'
-        show_action.setText('打开 Dryless' if zh else 'Open Dryless')
-        pause_action.setText('暂停提醒' if zh else 'Pause reminders')
-        quit_action.setText('退出' if zh else 'Quit')
-    show_action.triggered.connect(show_window)
-    pause_action.triggered.connect(window.setPaused)
-    window.pausedChanged.connect(pause_action.setChecked)
-    quit_action.triggered.connect(window.close)
-    menu.addAction(show_action)
-    menu.addAction(pause_action)
-    menu.addSeparator()
-    menu.addAction(quit_action)
-    menu.aboutToShow.connect(refresh_labels)
+        state = window._camera_state
+        signature = (state, window._paused, config.SOUND_ENABLED, config.LANGUAGE,
+                     window.monitor._status_lbl.text(), window.titlebar._camera_btn.isEnabled())
+        if signature == getattr(tray, '_last_signature', None):
+            return
+        tray._last_signature = signature
+        active = state in ('running', 'starting')
+        labels = {
+            'show': ('打开 Dryless', 'Open Dryless'),
+            'camera': ('关闭摄像头', 'Stop camera') if active else ('开启摄像头', 'Start camera'),
+            'pause': ('恢复提醒', 'Resume reminders') if window._paused else ('暂停提醒', 'Pause reminders'),
+            'sound': ('声音提醒', 'Reminder sounds'),
+            'quit': ('退出', 'Quit'),
+        }
+        for key, action in actions.items():
+            action.setText(labels[key][0 if zh else 1])
+        actions['camera'].setText(window.titlebar._camera_btn.text())
+        actions['camera'].setEnabled(window.titlebar._camera_btn.isEnabled())
+        actions['pause'].setEnabled(state == 'running')
+        actions['pause'].setChecked(window._paused)
+        actions['sound'].setChecked(config.SOUND_ENABLED)
+        pix = QPixmap(32, 32); pix.fill(Qt.GlobalColor.transparent)
+        painter = QPainter(pix); painter.setRenderHint(QPainter.RenderHint.Antialiasing)
+        glyph_icon('eye_closed' if state == 'off' else 'eye', 32).paint(painter, 0, 0, 32, 32)
+        if state != 'off' and (window._paused or state != 'running'):
+            color = T.C_TEXT3 if window._paused else (T.DANGER if state == 'error' else T.WARN)
+            painter.setPen(Qt.PenStyle.NoPen); painter.setBrush(QColor(color))
+            painter.drawEllipse(QRectF(20, 20, 12, 12))
+            if window._paused:
+                painter.setBrush(QColor('#FFFFFF'))
+                painter.drawRect(23, 23, 2, 6); painter.drawRect(27, 23, 2, 6)
+        painter.end(); tray.setIcon(QIcon(pix))
+        tray.setToolTip('Dryless · ' + window.monitor._status_lbl.text())
+    actions['show'].triggered.connect(show_window)
+    actions['camera'].triggered.connect(window.toggleCamera)
+    actions['pause'].triggered.connect(lambda: window.setPaused(not window._paused))
+    actions['sound'].triggered.connect(window._on_sound)
+    actions['quit'].triggered.connect(window.requestQuit)
+    for key in ('show', 'camera', 'pause', 'sound'):
+        menu.addAction(actions[key])
+    menu.addSeparator(); menu.addAction(actions['quit'])
+    menu.aboutToShow.connect(refresh)
+    window.cameraStateChanged.connect(refresh)
+    window.pausedChanged.connect(refresh)
+    window.soundChanged.connect(refresh)
+    window.monitor.statusChanged.connect(refresh)
     tray.setContextMenu(menu)
     tray.activated.connect(lambda reason: show_window() if reason == QSystemTrayIcon.ActivationReason.DoubleClick else None)
-    refresh_labels()
+    def explain_background():
+        if getattr(tray, '_explained', False):
+            return
+        tray._explained = True
+        tray.showMessage('Dryless', '仍在后台运行。右键托盘图标可控制摄像头或退出。' if config.LANGUAGE == 'zh' else 'Still running. Right-click the tray icon to control the camera or quit.')
+    window.trayHidden.connect(explain_background)
+    refresh()
     tray.show()
     return tray
 
@@ -86,8 +132,11 @@ def main():
         return run(app, sys.argv[index + 1], camera=(flag == "--camera-smoke"))
     window = DrylessApp()
     window.setWindowIcon(icon)
-    tray = create_tray(app, window, icon)
-    app.aboutToQuit.connect(tray.hide)
+    if QSystemTrayIcon.isSystemTrayAvailable():
+        tray = create_tray(app, window, icon)
+        window._tray_resident = True
+        app.setQuitOnLastWindowClosed(False)
+        app.aboutToQuit.connect(tray.hide)
     window.show()
     if "--stats" in sys.argv:
         window._on_nav("stats")

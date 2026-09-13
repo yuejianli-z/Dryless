@@ -109,7 +109,7 @@ class Sidebar(QWidget):
             f"border-bottom:none;}}"
         )
         idt_lay = QVBoxLayout(idt)
-        idt.setFixedHeight(72)
+        idt.setFixedHeight(96)
         idt_lay.setContentsMargins(20, 12, 14, 12)
         idt_lay.setSpacing(7)
 
@@ -136,7 +136,9 @@ class Sidebar(QWidget):
         self._subtitle_lbl.setObjectName("SidebarSubtitle")
         self._subtitle_lbl.setWordWrap(True)
         self._subtitle_lbl.setStyleSheet(f"color:{T.S_TEXT_DIM}; font-size:12px; padding-left:0px; background:transparent; border:none;")
-        self._subtitle_lbl.hide()
+        self._subtitle_lbl.setFont(T.ui_font(12))
+        self._subtitle_lbl.setFixedHeight(20)
+        idt_lay.addWidget(self._subtitle_lbl)
         root.addWidget(idt)
 
         # Nav area

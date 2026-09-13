@@ -40,6 +40,7 @@ ALERT_LEVELS = [0, 1, 2]
 SOUND_ENABLED = True
 SOUND_THEME = "blip"
 SHOW_PREVIEW_ON_START = True
+CAMERA_ENABLED_ON_START = False
 PREVIEW_WINDOW_NAME = "Dryless - Press Q to hide"
 
 LANGUAGE = "en"
@@ -56,6 +57,7 @@ _PERSIST_KEYS = {
     "SOUND_ENABLED": bool,
     "SOUND_THEME": str,
     "SHOW_PREVIEW_ON_START": bool,
+    "CAMERA_ENABLED_ON_START": bool,
 }
 
 

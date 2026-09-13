@@ -41,9 +41,11 @@ try:
   window=ui.DrylessApp(start_worker=False);window.setAttribute(Qt.WidgetAttribute.WA_ShowWithoutActivating,True);window.show();screen=window.monitor
   preview=QImage(640,480,QImage.Format.Format_RGB32);preview.fill(QColor('#373737'));p=QPainter(preview);p.setPen(QColor('#FFFFFF'));p.setFont(QFont('Segoe UI',18));p.drawText(preview.rect(),Qt.AlignmentFlag.AlignCenter,'CAMERA TEST FRAME\n640 × 480');p.end();window._on_frame(preview)
   base=dict(face=True,eye_open=True,eye_ratio=.85,no_blink=2.4,rate=7.3,total=191,alert_level=-1,session_sec=676,minute_history=[12,18,16,20,19,14,18,17,22,18,16],minute_valid_seconds=[60]*11)
-  check('camera-default-visible',screen._preview_visible and screen._camera_stack.currentIndex()==0)
+  check('preview-preference-restored',not screen._preview_visible)
+  check('camera-default-off',window._camera_state=='off' and not window._accept_camera)
+  screen.setCameraState('running');window.setPreviewVisible(True);window.titlebar.setCameraState('running')
   for lang in ('zh','en'):
-   config.LANGUAGE=lang;window._on_language_changed()
+   window._camera_state='running';config.LANGUAGE=lang;window._on_language_changed()
    for width,height in ((1240,780),(1100,700)):
     window.resize(width,height);window._on_nav('monitor')
     for tag,extra in [('normal',{}),('no-face',dict(face=False,eye_ratio=None,minute_history=[0]*11,minute_valid_seconds=[0]*11)),('alert',dict(no_blink=14.2,alert_level=1))]:
@@ -68,7 +70,7 @@ try:
   screen._pause_button.click();check('pause-propagates',window.worker._paused);shot('en-paused',1100,700);screen._pause_button.click()
   window._on_stats(dict(base,minute_history=[0],minute_valid_seconds=[60]));check('real-zero',screen.trend._data==[0])
   window._on_stats(dict(base,minute_history=[10,20,99],minute_valid_seconds=[30,60,20]));check('weighted-and-gap',screen._frequency_value.text()=='20.0' and screen.trend._data==[20,20,None])
-  window.worker.alertErrorReported.emit('Audio test error');window._on_stats(base);check('persistent-audio-error',not screen._sound_button.isEnabled());shot('en-audio-error',1100,700)
+  window._on_alert_error('Audio test error');window._on_stats(base);check('persistent-audio-error',not screen._sound_button.isEnabled());shot('en-audio-error',1100,700)
   window._on_error('Camera test unavailable');shot('en-camera-error',1100,700)
   font_failures=[]
   for page in ('monitor','stats','settings'):

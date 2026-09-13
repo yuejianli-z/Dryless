@@ -42,6 +42,10 @@ def _glyph(p, name):
         pixel_size = max(1, round(20 * abs(p.deviceTransform().m11())))
         pix = _brand_eye_pixmap(T.BRAND, pixel_size)
         p.drawPixmap(QRectF(0, 0, 20, 20), pix, QRectF(pix.rect()))
+    elif name == 'eye_closed':
+        path = QPainterPath(); path.moveTo(2, 8)
+        path.cubicTo(6, 14, 14, 14, 18, 8); p.drawPath(path)
+        p.drawLine(5, 11, 3, 14); p.drawLine(10, 13, 10, 16); p.drawLine(15, 11, 17, 14)
     elif name == 'globe':
         p.drawEllipse(QRectF(3,3,14,14))
         p.drawEllipse(QRectF(7,3,6,14))

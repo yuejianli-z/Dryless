@@ -306,7 +306,7 @@ class SettingsScreen(QWidget):
             self._res_buttons[resolution] = button
             resolution_row.addWidget(button)
         self._setting_row(device_layout, "摄像头分辨率", "Camera resolution",
-                          "更改后重启应用生效", "Restart the app to apply changes", resolution_choices)
+                          "下次开启摄像头时生效", "Applies next time you start the camera", resolution_choices)
         self._restart = _label()
         self._restart.setParent(self)
         self._restart.hide()

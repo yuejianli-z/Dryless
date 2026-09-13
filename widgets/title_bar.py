@@ -158,6 +158,7 @@ class TitleBar(QFrame):
     minClicked   = pyqtSignal()
     maxClicked   = pyqtSignal()
     languageChanged = pyqtSignal()
+    cameraToggled = pyqtSignal()
 
     def __init__(self, parent=None):
         super().__init__(parent)
@@ -180,6 +181,14 @@ class TitleBar(QFrame):
 
         self._chip = _Chip()
         lay.addWidget(self._chip)
+
+        self._camera_btn = QPushButton()
+        self._camera_btn.setFont(T.ui_font(T.TYPE_CONTROL, 500))
+        self._camera_btn.setFixedSize(148, 34)
+        self._camera_btn.setCursor(Qt.CursorShape.PointingHandCursor)
+        self._camera_btn.clicked.connect(self.cameraToggled.emit)
+        lay.addWidget(self._camera_btn)
+        self.setCameraState("off")
 
         # 语言切换按钮
         self._lang_btn = _LanguageButton()
@@ -263,6 +272,27 @@ class TitleBar(QFrame):
         if self._chip._level >= 0:
             self._chip.setAlert(self._chip._level)
             self._chip.updateGeometry()
+
+    def setCameraState(self, state):
+        zh = config.LANGUAGE == "zh"
+        labels = {
+            "off": ("开启摄像头", "Start camera"),
+            "starting": ("取消开启", "Cancel start"),
+            "running": ("关闭摄像头", "Stop camera"),
+            "stopping": ("正在关闭…", "Stopping…"),
+            "error": ("重试摄像头", "Retry camera"),
+        }
+        self._camera_btn.setText(labels[state][0 if zh else 1])
+        self._camera_btn.setAccessibleName(self._camera_btn.text())
+        self._camera_btn.setEnabled(state != "stopping")
+        primary = state in ("off", "error")
+        self._camera_btn.setStyleSheet(
+            f"QPushButton{{background:{T.BRAND if primary else T.C_CARD};"
+            f"color:{'#FFFFFF' if primary else T.C_TEXT};border:1px solid {T.BRAND if primary else T.C_BORDER};"
+            "border-radius:8px;padding:4px 8px;text-align:center;}"
+            f"QPushButton:hover{{background:{T.BRAND_HOVER if primary else T.C_SURFACE};}}"
+            f"QPushButton:disabled{{color:{T.C_TEXT3};background:{T.C_SURFACE};}}")
+        self._camera_btn.setToolTip("关闭会释放摄像头并停止检测和提醒。" if zh else "Stopping releases the camera and stops detection and reminders.")
 
     def setPageHeader(self, header):
         if self._page_headers.indexOf(header) < 0:

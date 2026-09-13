@@ -54,7 +54,7 @@ def run(app, output, camera=False):
             check('model-loaded-no-face-on-black', not detector.face_detected)
         finally:
             detector.release()
-        window = ui.DrylessApp(start_worker=camera)
+        window = ui.DrylessApp(start_worker=False)
         window.show()
         if camera:
             config.SOUND_ENABLED = False
@@ -66,9 +66,21 @@ def run(app, output, camera=False):
                 seen['face_seen'] |= bool(value.get('face'))
             window.worker.stats.connect(stats)
             window.worker.errorReported.connect(report['errors'].append)
+            window.setCameraEnabled(True, persist=False)
+            seen['running_sessions'] = 0
+            def camera_state(state):
+                if state == 'running':
+                    seen['running_sessions'] += 1
+            window.cameraStateChanged.connect(camera_state)
+            def stop_first():
+                window.setCameraEnabled(False, persist=False)
+                check('camera-stop-clears-preview', window.monitor.camera._frame is None)
+            QTimer.singleShot(5000, stop_first)
+            QTimer.singleShot(6800, lambda: window.setCameraEnabled(True, persist=False))
             QTimer.singleShot(12000, app.quit)
             app.exec()
             report['camera'] = seen
+            check('real-camera-reopens-second-session', seen['running_sessions'] == 2)
             check('real-camera-frames', seen['frames'] >= 5)
             check('real-camera-detection-samples', seen['samples'] >= 5)
         else:

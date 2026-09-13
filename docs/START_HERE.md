@@ -3,7 +3,12 @@
 目标：在同一 GitHub Release 发布同一版本号的 Windows 与 Mac 应用。
 功能一致；整体布局一致；窗口、菜单栏、字体回退等细节遵循各自系统。
 
-## 当前接力顺序（2026-09-13更新）
+## Windows 已实施更新（rc.3）
+新增真正的摄像头启停、取消连接与资源释放、托盘联动/关窗驻留、首页四项指标对齐、护眼 tips、slogan。
+统计气泡图、已选声音、20分钟微休息不改。Mac 是功能参考，各端继续保留自身 UI。
+本轮范围与验证见 [release/windows-rc3.md](release/windows-rc3.md)。F2 仍有未完成项，不能宣称全功能一致。
+
+## 当前接力顺序（2026-09-13初次审查记录）
 0. 暂不合并/替换 main，不公开正式 Release。
 1. 已收到 Mac 的 codex/macos-native；源码审查见 [MAC_REVIEW.md](MAC_REVIEW.md)。
 2. Windows 侧定义的共同功能合同升级为 [FEATURE_PARITY.md F2](FEATURE_PARITY.md)。
@@ -23,7 +28,7 @@ GitHub 分支/PR + 本目录交接文档是共同记录。登录相同 Codex 账
 需要对方处理的问题写在 PR 描述/评论中，明确文件、复现步骤与预期行为。
 不要同时修改同一共享模块；Mac API 适配尽量放独立模块。
 
-版本：version.py；候选：0.2.0-rc.2；正式目标：0.2.0。
+版本：version.py；候选：0.2.0-rc.3；正式目标：0.2.0。
 目前 Mac 尚未验收；不得把 Windows 构建成功称为双平台完成。
 
 ## 当前布局参考（合成测试数据和摄像头占位图）

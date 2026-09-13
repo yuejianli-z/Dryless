@@ -11,7 +11,7 @@ from PyQt6.QtWidgets import QWidget, QSizePolicy
 import theme as T
 
 
-_STATES = {"detected", "no_face", "waiting", "paused", "error", "alert_0", "alert_1", "alert_2", "alert_3"}
+_STATES = {"off", "detected", "no_face", "waiting", "paused", "error", "alert_0", "alert_1", "alert_2", "alert_3"}
 
 
 def _normalized(state):
@@ -29,6 +29,7 @@ def state_color(state):
         "no_face": T.WARN,
         "waiting": "#819198",
         "paused": T.C_TEXT3,
+        "off": T.C_TEXT3,
         "error": T.DANGER,
     }[key])
 
@@ -78,7 +79,7 @@ class StatusLight(QWidget):
 
     def _sync_timer(self):
         visible = self.isVisible() and not self.window().isMinimized()
-        should_run = visible and self._state != "paused"
+        should_run = visible and self._state not in ("paused", "off")
         if should_run and not self._timer.isActive():
             self._timer.start()
         elif not should_run and self._timer.isActive():
@@ -116,7 +117,7 @@ class StatusLight(QWidget):
         painter.setPen(Qt.PenStyle.NoPen)
         center_x, center_y = self.width() / 2, self.height() / 2
         color = self.color()
-        if self._state != "paused":
+        if self._state not in ("paused", "off"):
             pulse = self._pulse()
             radius = 5.5 + 3.5 * pulse
             halo = QColor(color)

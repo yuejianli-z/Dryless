@@ -14,6 +14,7 @@ import sys
 if sys.platform == "win32":
     os.environ.setdefault("QT_QPA_PLATFORM", "windows:fontengine=freetype")
 import time
+import threading
 from collections import deque
 
 import cv2
@@ -99,6 +100,7 @@ def fnt(size, weight=400):
 # 检测线程
 # ═══════════════════════════════════════════════════════════════
 class DetectorWorker(QThread):
+    captureReady = pyqtSignal()
     frameReady = pyqtSignal(QImage)
     stats = pyqtSignal(dict)
     alertTriggered = pyqtSignal(int)  # level
@@ -109,6 +111,7 @@ class DetectorWorker(QThread):
     def __init__(self, parent=None):
         super().__init__(parent)
         self._running = False
+        self._stop_requested = threading.Event()
         self._paused = False
         self._sound_enabled = config.SOUND_ENABLED
         self._detector: BlinkDetector | None = None
@@ -165,11 +168,15 @@ class DetectorWorker(QThread):
                 self._alert.check_and_alert(effective)
         return level, micro
 
-    def stop(self):
+    def request_stop(self):
+        self._stop_requested.set()
         self._running = False
         if self._alert:
             self._alert.stop()
         self.requestInterruption()
+
+    def stop(self):
+        self.request_stop()
         return self.wait(1500)
 
     def setPaused(self, paused: bool):
@@ -187,114 +194,128 @@ class DetectorWorker(QThread):
                 self._alert.stop()
 
     def run(self):
+        cap = None
         try:
-            self._detector = BlinkDetector()
-        except Exception as e:
-            self.errorReported.emit(t("err_detector", e=e))
-            return
-        try:
-            self._alert = AlertManager(on_error=self.alertErrorReported.emit)
-            self._alert.enabled = self._sound_enabled
-        except Exception as e:
-            self._alert = None
-            self.alertErrorReported.emit(t("err_alert", e=e))
-
-        cap = cv2.VideoCapture(config.CAMERA_INDEX)
-        cap.set(cv2.CAP_PROP_FRAME_WIDTH, config.CAMERA_WIDTH)
-        cap.set(cv2.CAP_PROP_FRAME_HEIGHT, config.CAMERA_HEIGHT)
-        if not cap.isOpened():
-            self.errorReported.emit(t("err_camera", index=config.CAMERA_INDEX))
-            cap.release()
-            self._detector.release()
-            return
-
-        self._running = not self.isInterruptionRequested()
-        self._session_start = time.time()
-        frame_count = 0
-        read_failures = 0
-
-        while self._running and not self.isInterruptionRequested():
-            ok, frame = cap.read()
-            if not ok:
-                read_failures += 1
-                if read_failures >= 90:
-                    self.errorReported.emit(t("err_camera", index=config.CAMERA_INDEX))
-                    break
-                self.msleep(30)
-                continue
+            if self._stop_requested.is_set():
+                return
+            try:
+                self._detector = BlinkDetector()
+            except Exception as e:
+                self.errorReported.emit(t("err_detector", e=e))
+                return
+            try:
+                self._alert = AlertManager(on_error=self.alertErrorReported.emit)
+                self._alert.enabled = self._sound_enabled and not self._paused
+            except Exception as e:
+                self._alert = None
+                self.alertErrorReported.emit(t("err_alert", e=e))
+    
+            if self._stop_requested.is_set():
+                return
+            cap = cv2.VideoCapture(config.CAMERA_INDEX)
+            cap.set(cv2.CAP_PROP_FRAME_WIDTH, config.CAMERA_WIDTH)
+            cap.set(cv2.CAP_PROP_FRAME_HEIGHT, config.CAMERA_HEIGHT)
+            if not cap.isOpened():
+                self.errorReported.emit(t("err_camera", index=config.CAMERA_INDEX))
+                return
+    
+            self._running = not self._stop_requested.is_set() and not self.isInterruptionRequested()
+            self._session_start = time.time()
+            frame_count = 0
             read_failures = 0
-            frame_count += 1
-
-            if frame_count % max(1, config.PROCESS_EVERY_N_FRAMES) == 0:
-                frame, blinked, no_blink_sec, _ = self._detector.process_frame(frame)
-
-                sample_time = time.monotonic()
-                sample_valid = self._detector.face_detected and self._detector._ratio is not None
-                if self._previous_sample_time is not None and self._previous_sample_valid and sample_valid:
-                    self._minute_valid_seconds += min(1.0, max(0.0, sample_time - self._previous_sample_time))
-                self._previous_sample_time = sample_time
-                self._previous_sample_valid = sample_valid
-
-                if blinked:
-                    self._minute_blinks += 1
-                level, micro = self._update_reminders(
-                    self._detector.face_detected, blinked, no_blink_sec, sample_time)
-
-                # 分钟聚合
-                cur_min = int((time.time() - self._session_start) / 60)
-                if cur_min != self._last_minute_bucket:
-                    if self._last_minute_bucket >= 0:
-                        from datetime import datetime
-                        self._minute_history.append(float(self._minute_blinks))
-                        self._minute_valid_history.append(min(60.0, self._minute_valid_seconds))
-                        history_store.append_minute(
-                            self._minute_blinks,
-                            self._last_minute_bucket,
-                            datetime.now().strftime("%H:%M"),
-                        )
-                        self.minuteCommitted.emit()
-                    self._minute_blinks = 0
-                    self._minute_valid_seconds = 0.0
-                    self._last_minute_bucket = cur_min
-
-                # rate 估算，clamp 到生理上限 30次/分钟
-                elapsed_min = max(1 / 60.0, (time.time() - self._session_start) / 60.0)
-                rate = self._detector.blink_count / elapsed_min
-                if cur_min >= 0:
-                    sec_in = max(1.0, (time.time() - self._session_start) - cur_min * 60.0)
-                    near = self._minute_blinks / sec_in * 60.0
-                    rate = (rate + near) / 2.0
-                rate = min(rate, 30.0)
-
-                self.stats.emit({
-                    "paused": self._paused,
-                    "microbreak_active": micro["active"],
-                    "microbreak_remaining": micro["remaining_seconds"],
-                    "face": self._detector.face_detected,
-                    "eye_open": self._detector._is_open,
-                    "eye_ratio": float(self._detector._ratio) if self._detector._ratio is not None else None,
-                    "rate": float(rate),
-                    "no_blink": float(no_blink_sec),
-                    "total": int(self._detector.blink_count),
-                    "alert_level": level,
-                    "session_sec": int(time.time() - self._session_start),
-                    "minute_history": list(self._minute_history),
-                    "minute_valid_seconds": list(self._minute_valid_history),
-                })
-
-            if frame_count % 3 == 0:
-                rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
-                h, w, _ = rgb.shape
-                img = QImage(rgb.data, w, h, 3 * w, QImage.Format.Format_RGB888).copy()
-                self.frameReady.emit(img)
-
-            self.msleep(10)
-
-        cap.release()
-        if self._alert:
-            self._alert.stop()
-        if self._detector:
-            self._detector.release()
+    
+            while self._running and not self._stop_requested.is_set() and not self.isInterruptionRequested():
+                ok, frame = cap.read()
+                if not ok:
+                    read_failures += 1
+                    if read_failures >= 90:
+                        self.errorReported.emit(t("err_camera", index=config.CAMERA_INDEX))
+                        break
+                    self.msleep(30)
+                    continue
+                read_failures = 0
+                frame_count += 1
+                if frame_count == 1:
+                    self.captureReady.emit()
+    
+                if frame_count % max(1, config.PROCESS_EVERY_N_FRAMES) == 0:
+                    frame, blinked, no_blink_sec, _ = self._detector.process_frame(frame)
+                    if self._stop_requested.is_set():
+                        break
+    
+                    sample_time = time.monotonic()
+                    sample_valid = self._detector.face_detected and self._detector._ratio is not None
+                    if self._previous_sample_time is not None and self._previous_sample_valid and sample_valid:
+                        self._minute_valid_seconds += min(1.0, max(0.0, sample_time - self._previous_sample_time))
+                    self._previous_sample_time = sample_time
+                    self._previous_sample_valid = sample_valid
+    
+                    if blinked:
+                        self._minute_blinks += 1
+                    level, micro = self._update_reminders(
+                        self._detector.face_detected, blinked, no_blink_sec, sample_time)
+    
+                    # 分钟聚合
+                    cur_min = int((time.time() - self._session_start) / 60)
+                    if cur_min != self._last_minute_bucket:
+                        if self._last_minute_bucket >= 0:
+                            from datetime import datetime
+                            self._minute_history.append(float(self._minute_blinks))
+                            self._minute_valid_history.append(min(60.0, self._minute_valid_seconds))
+                            history_store.append_minute(
+                                self._minute_blinks,
+                                self._last_minute_bucket,
+                                datetime.now().strftime("%H:%M"),
+                            )
+                            self.minuteCommitted.emit()
+                        self._minute_blinks = 0
+                        self._minute_valid_seconds = 0.0
+                        self._last_minute_bucket = cur_min
+    
+                    # rate 估算，clamp 到生理上限 30次/分钟
+                    elapsed_min = max(1 / 60.0, (time.time() - self._session_start) / 60.0)
+                    rate = self._detector.blink_count / elapsed_min
+                    if cur_min >= 0:
+                        sec_in = max(1.0, (time.time() - self._session_start) - cur_min * 60.0)
+                        near = self._minute_blinks / sec_in * 60.0
+                        rate = (rate + near) / 2.0
+                    rate = min(rate, 30.0)
+    
+                    self.stats.emit({
+                        "paused": self._paused,
+                        "microbreak_active": micro["active"],
+                        "microbreak_remaining": micro["remaining_seconds"],
+                        "face": self._detector.face_detected,
+                        "eye_open": self._detector._is_open,
+                        "eye_ratio": float(self._detector._ratio) if self._detector._ratio is not None else None,
+                        "rate": float(rate),
+                        "no_blink": float(no_blink_sec),
+                        "total": int(self._detector.blink_count),
+                        "alert_level": level,
+                        "session_sec": int(time.time() - self._session_start),
+                        "minute_history": list(self._minute_history),
+                        "minute_valid_seconds": list(self._minute_valid_history),
+                    })
+    
+                if frame_count % 3 == 0:
+                    rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+                    h, w, _ = rgb.shape
+                    img = QImage(rgb.data, w, h, 3 * w, QImage.Format.Format_RGB888).copy()
+                    self.frameReady.emit(img)
+    
+                self.msleep(10)
+    
+        except Exception as error:
+            if not self._stop_requested.is_set():
+                self.errorReported.emit(str(error))
+        finally:
+            self._running = False
+            if cap is not None:
+                cap.release()
+            if self._alert:
+                self._alert.stop()
+            if self._detector:
+                self._detector.release()
 
 
 # ═══════════════════════════════════════════════════════════════
@@ -305,6 +326,9 @@ class DrylessApp(QMainWindow):
 
     RESIZE_MARGIN = 6
     pausedChanged = pyqtSignal(bool)
+    cameraStateChanged = pyqtSignal(str)
+    soundChanged = pyqtSignal(bool)
+    trayHidden = pyqtSignal()
 
     def __init__(self, start_worker=True):
         super().__init__()
@@ -412,20 +436,21 @@ class DrylessApp(QMainWindow):
         self._drag_pos: QPoint | None = None
 
         # Detector
-        self.worker = DetectorWorker(self)
-        self.worker.frameReady.connect(self._on_frame)
-        self.worker.stats.connect(self._on_stats)
-        self.worker.alertTriggered.connect(self.monitor.on_alert_triggered)
-        self.worker.errorReported.connect(self._on_error)
-        self.worker.alertErrorReported.connect(self._on_alert_error)
-        self.worker.minuteCommitted.connect(self.stats.update_stats)
+        self._camera_state = "off"
+        self._accept_camera = False
+        self._tray_resident = False
+        self._quit_requested = False
+        self._worker_started = False
+        self.worker = self._new_worker()
+        self.titlebar.cameraToggled.connect(self.toggleCamera)
         self._paused = False
         self._closing = False
         self.sidebar.setStatus("waiting", t("status_waiting"))
         self._on_sound(config.SOUND_ENABLED)
-        self.monitor.setPreviewVisible(True)
+        self.monitor.setPreviewVisible(config.SHOW_PREVIEW_ON_START)
+        self._set_camera_state("off")
         apply_window_shape(self, T.R_WINDOW)
-        if start_worker:
+        if start_worker and config.CAMERA_ENABLED_ON_START:
             QTimer.singleShot(300, self._start_worker)
 
     def resizeEvent(self, event):
@@ -434,9 +459,86 @@ class DrylessApp(QMainWindow):
             self.sidebar.setFixedWidth(max(196,min(208,round(self.width()*.16))))
 
     # ── 窗口控制 ────────────────────────────────────
+    def _new_worker(self):
+        worker = DetectorWorker(self)
+        # Queued events from a closed session must not revive the old UI.
+        def forward(callback):
+            return lambda *args: callback(*args) if worker is self.worker and self._accept_camera else None
+        worker.captureReady.connect(forward(lambda: self._set_camera_state("running")))
+        worker.frameReady.connect(forward(self._on_frame))
+        worker.stats.connect(forward(self._on_stats))
+        worker.alertTriggered.connect(forward(self.monitor.on_alert_triggered))
+        worker.errorReported.connect(forward(self._camera_error))
+        worker.alertErrorReported.connect(forward(self._on_alert_error))
+        worker.minuteCommitted.connect(self.stats.update_stats)
+        worker.finished.connect(lambda: self._camera_finished(worker))
+        return worker
+
+    def _set_camera_state(self, state):
+        self._camera_state = state
+        self.titlebar.setCameraState(state)
+        self.monitor.setCameraState(state)
+        self.cameraStateChanged.emit(state)
+
     def _start_worker(self):
-        if not self._closing:
+        self.setCameraEnabled(True, persist=False)
+
+    def toggleCamera(self):
+        self.setCameraEnabled(self._camera_state not in ("starting", "running"))
+
+    def setCameraEnabled(self, enabled, persist=True):
+        if self._closing or self._camera_state == "stopping":
+            return
+        if enabled and self._camera_state in ("running", "starting"):
+            return
+        if enabled and self.worker.isRunning():
+            return
+        if persist:
+            config.CAMERA_ENABLED_ON_START = bool(enabled)
+            config.save_config()
+        if enabled:
+            if self._worker_started or self.worker._stop_requested.is_set():
+                previous = self.worker
+                self.worker = self._new_worker()
+                previous.deleteLater()
+            self._worker_started = True
+            self._accept_camera = True
+            self._dismissed_until_blink = False
+            self.monitor.resetSession()
+            self.sidebar.setSession(_fmt_session(0))
+            self.worker.setPaused(self._paused)
+            self.worker.setSoundEnabled(config.SOUND_ENABLED)
+            self._set_camera_state("starting")
             self.worker.start()
+        else:
+            self._accept_camera = False
+            AUDIO.stop()
+            self.alert_strip.setState(-1, 0)
+            self.titlebar.setAlert(-1)
+            self._set_camera_state("stopping" if self.worker.isRunning() else "off")
+            self.worker.request_stop()
+
+    def _camera_error(self, message):
+        self._accept_camera = False
+        AUDIO.stop()
+        self._set_camera_state("error")
+        self.titlebar._camera_btn.setEnabled(False)
+        self._on_error(message)
+        self.worker.request_stop()
+
+    def _camera_finished(self, worker):
+        if worker is not self.worker:
+            return
+        self._accept_camera = False
+        if self._camera_state != "error":
+            self._set_camera_state("off")
+        else:
+            self.titlebar.setCameraState("error")
+        self.cameraStateChanged.emit(self._camera_state)
+
+    def requestQuit(self):
+        self._quit_requested = True
+        self.close()
 
     def _do_close(self):
         self.close()
@@ -448,7 +550,13 @@ class DrylessApp(QMainWindow):
             self.showMaximized()
 
     def closeEvent(self, e):
+        if self._tray_resident and not self._quit_requested:
+            e.ignore()
+            self.hide()
+            self.trayHidden.emit()
+            return
         self._closing = True
+        self._accept_camera = False
         AUDIO.stop()
         try:
             if not self.worker.stop():
@@ -458,6 +566,8 @@ class DrylessApp(QMainWindow):
         except Exception as ex:
             print(f"[ui] Failed to stop detector thread: {ex}", file=sys.stderr)
         super().closeEvent(e)
+        if self._quit_requested:
+            QApplication.instance().quit()
 
     # ── 拖拽移动（标题栏区域）────────────────────────
     def mousePressEvent(self, e: QMouseEvent):
@@ -506,6 +616,7 @@ class DrylessApp(QMainWindow):
         self.settings.setSoundEnabled(v)
         self.monitor.setSoundEnabled(v)
         self.worker.setSoundEnabled(v)
+        self.soundChanged.emit(bool(v))
 
     def _on_sound_from_settings(self, v):
         self._on_sound(v)
@@ -515,6 +626,7 @@ class DrylessApp(QMainWindow):
         self.worker.setPaused(paused)
         self.monitor.setPaused(paused)
         if paused:
+            AUDIO.stop()
             self.titlebar.setAlert(-1)
             self.alert_strip.setState(-1, 0)
         self.pausedChanged.emit(self._paused)
@@ -531,6 +643,7 @@ class DrylessApp(QMainWindow):
         self.monitor.retranslate()
         self.stats.retranslate()
         self.titlebar._refresh_lang_btn()
+        self.titlebar.setCameraState(self._camera_state)
         # Update current titlebar title
         idx = self.stack.currentIndex()
         names = ["monitor", "stats", "settings"]
