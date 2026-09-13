@@ -1,0 +1,16 @@
+{
+  "version": "0.2.0-rc.4",
+  "source_commit": "7a6e2edb5f76e60cfb9cb5e2ca16482fd136babc",
+  "sha256": "cfb9300c147b86790acd114f20c2e7b03067b08c2f5d4cc0558f3695910e16e5",
+  "ui_checks": 185,
+  "camera_lifecycle_simulated_checks": 38,
+  "tips_checks": 131,
+  "packaged_self_test": {
+    "passed": true,
+    "checks": 62
+  },
+  "limits": [
+    "Physical-camera smoke was not repeated for these UI-only changes; prior rc.3 hardware evidence remains in its own report.",
+    "No live 20-minute microbreak or macOS runtime validation. F2 gaps remain."
+  ]
+}

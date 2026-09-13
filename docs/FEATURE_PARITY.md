@@ -148,18 +148,22 @@ Windows 的 MediaPipe 与 Mac 的 Vision 可以是不同适配器；提醒、统
 
 ## 7. 护眼 tips 与文案
 
-固定内容清单，不用模型实时生成健康建议；主界面一次显示一个简短提示，可手动换一条。
-若做自动轮播，间隔至少 20 秒、鼠标悬停/键盘焦点在该区域时暂停；活动提醒期间不轮换抢注意力。
-tips 没有声音、不单独弹窗、不改计时器。不是任务，更不需要“完成”打卡。
+固定内容清单，不用模型实时生成健康建议。独立卡片一次显示一条；标题四字、正文长度相近。
+自动轮播间隔20秒，鼠标悬停/键盘焦点在该区域时暂停；活动提醒期间不轮换抢注意力。
+不加“下一条”等操作按钮；允许方向键无障碍浏览。隐藏页面、最小化时暂停轮播。
+tips 没有声音、不单独弹窗、不改计时器，不需要完成打卡。
 
-| 内容 ID | 中文 | English |
-| --- | --- | --- |
-| blink | 看屏幕时，记得自然眨眼。 | Remember to blink naturally while using your screen. |
-| distance | 每 20 分钟，看约 6 米远处至少 20 秒。 | Every 20 minutes, look about 20 feet away for at least 20 seconds. |
-| glare | 调整屏幕亮度与位置，减少刺眼的反光。 | Adjust screen brightness and position to reduce glare. |
-| air | 避免风扇或空调气流直接吹向眼睛。 | Keep direct airflow from fans or vents away from your eyes. |
+| 内容 ID | 标题 | 中文 | English |
+| --- | --- | --- | --- |
+| blink | 自然轻眨 | 轻柔地完整眨眼，让上下眼睑自然闭合。 | Blink gently, letting your eyelids close fully. |
+| distance | 远眺休息 | 每 20 分钟，看约 6 米远处至少 20 秒。 | Every 20 min, look 6 m away for at least 20 sec. |
+| rest | 短暂闭眼 | 用眼间隙，轻闭双眼 10 秒，再自然睁开。 | Between tasks, close your eyes gently for 10 sec. |
 
-内容依据：[Mayo Clinic, Eyestrain — self-care](https://www.mayoclinic.org/diseases-conditions/eyestrain/diagnosis-treatment/drc-20372403)。
+2026-09-13按用户要求删去反光、空调内容，聚焦直接用眼动作。
+内容为患者指南的简短转述：完整眨眼依据 [Worcestershire NHS](https://www.worcsacute.nhs.uk/leaflets/dry-eye-and-blepharitis-treatment-guide/)；
+远眺依据 [Mayo Clinic](https://www.mayoclinic.org/diseases-conditions/eyestrain/diagnosis-treatment/drc-20372403)；
+短暂闭眼依据 [Gloucestershire NHS](https://www.gloshospitals.nhs.uk/your-visit/patient-information-leaflets/dry-eye/)。
+闭眼是可选的短暂休息建议，不增加强制计时任务，不承诺治疗效果。
 “20-20-20”是一般用眼建议；产品同样在连续在场20分钟时提示。看远处20秒是建议的休息动作，
 界面提示最多展示30秒是通知停留时间，两者不是不同的触发周期。
 保留品牌 slogan；不推销药物，不把频率作为诊断或“健康程度”评分。
