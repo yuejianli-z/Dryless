@@ -2,7 +2,7 @@ name: Windows candidate build
 on:
   push:
     branches: [codex/dryless-design-v2]
-    paths: [.github/workflows/windows-candidate.yml]
+    paths: ['.github/workflows/windows-candidate.yml', '**.py', 'requirements-windows.lock', 'assets/**', 'sounds/**']
   workflow_dispatch:
 permissions:
   contents: read

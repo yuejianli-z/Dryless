@@ -69,7 +69,7 @@ for i in range(3):
     check(f'Blip {i} audition bytes unchanged',hashlib.sha256(alert.sound_file(i,'blip').read_bytes()).hexdigest()==resource_hashes[f'sounds/blip/alert{i}.wav'])
 check('stage clamps to third',alert.sound_file(99).name=='alert2.wav')
 check('original logo unchanged',hashlib.sha256((ROOT/'icon.ico').read_bytes()).hexdigest().upper()=='20D830EF12FCF7B9B346EB820B8ED6001F075A6C59B4BCF3632E885F1076646C')
-check('detector unchanged',hashlib.sha256((ROOT/'blink_detector.py').read_bytes()).hexdigest().upper()=='1E551F4334095EE4EDEF9C6761FF44894E142170479E016289CC6FAD967C0E0F')
+check('detector unchanged',hashlib.sha256((ROOT/'blink_detector.py').read_bytes().replace(b'\r\n', b'\n')).hexdigest()=='1e551f4334095ee4edef9c6761ff44894e142170479e016289cc6fad967c0e0f')
 
 # Drive the actual worker's arbitration with simulated camera time, not the camera.
 worker=ui.DetectorWorker();worker._alert=Mock();worker._alert.enabled=True
