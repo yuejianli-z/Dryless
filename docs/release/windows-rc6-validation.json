@@ -1,0 +1,14 @@
+{
+  "version": "0.2.0-rc.6",
+  "source_commit": "85e5d2466712e0fb0ed6910e404fa87c1520ea24",
+  "sha256": "4de76d930047a5a54e01bdf44d8da8136a6a028a37cdb8d3e5a36542c0710581",
+  "unit_tests": 30,
+  "ui_checks": 186,
+  "live_instrument_checks": 21,
+  "camera_lifecycle_simulated_checks": 38,
+  "consistency_checks": 171,
+  "reminder_simulated_checks": 66,
+  "packaged_checks": 63,
+  "physical_camera_retested": false,
+  "mac_runtime_tested": false
+}
