@@ -46,6 +46,18 @@ def _glyph(p, name):
         path = QPainterPath(); path.moveTo(2, 8)
         path.cubicTo(6, 14, 14, 14, 18, 8); p.drawPath(path)
         p.drawLine(5, 11, 3, 14); p.drawLine(10, 13, 10, 16); p.drawLine(15, 11, 17, 14)
+    elif name == 'distance':
+        path=QPainterPath();path.moveTo(2,15);path.lineTo(7,8);path.lineTo(10,12)
+        path.lineTo(13,9);path.lineTo(18,15);p.drawPath(path);p.drawLine(2,17,18,17)
+        p.drawEllipse(QRectF(12,3,4,4))
+    elif name == 'sun':
+        p.drawEllipse(QRectF(6,6,8,8))
+        for a,b,c,d in ((10,1,10,3),(10,17,10,19),(1,10,3,10),(17,10,19,10),(3,3,5,5),(15,15,17,17),(3,17,5,15),(15,5,17,3)):
+            p.drawLine(a,b,c,d)
+    elif name == 'air':
+        path=QPainterPath();path.moveTo(2,6);path.lineTo(12,6);path.cubicTo(17,6,17,1,13,2)
+        path.moveTo(2,10);path.lineTo(16,10);path.moveTo(2,14);path.lineTo(10,14)
+        path.cubicTo(15,14,15,19,11,18);p.drawPath(path)
     elif name == 'globe':
         p.drawEllipse(QRectF(3,3,14,14))
         p.drawEllipse(QRectF(7,3,6,14))

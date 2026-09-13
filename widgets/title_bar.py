@@ -1,5 +1,5 @@
 """Top title bar with screen title, alert chip, and window controls."""
-from PyQt6.QtWidgets import QWidget, QHBoxLayout, QLabel, QFrame, QStackedWidget, QPushButton, QStyleOptionButton, QStyle
+from PyQt6.QtWidgets import QWidget, QHBoxLayout, QLabel, QFrame, QStackedWidget, QPushButton, QStyleOptionButton, QStyle, QSizePolicy
 from PyQt6.QtCore import Qt, QRectF, pyqtSignal, QSize
 from PyQt6.QtGui import QColor, QFont, QPainter, QPen, QActionGroup, QFontMetrics, QFontMetrics
 import config
@@ -167,7 +167,7 @@ class TitleBar(QFrame):
         self.setStyleSheet("QFrame#TitleBar{background:transparent;border:none;}")
         header_layout = QHBoxLayout(self)
         header_layout.setContentsMargins(24, 18, 10, 18)
-        header_layout.setSpacing(20)
+        header_layout.setSpacing(12)
         self._page_headers = QStackedWidget()
         self._page_headers.setFixedHeight(36)
         self._page_headers.setStyleSheet("QStackedWidget{background:transparent;border:none;}")
@@ -179,8 +179,9 @@ class TitleBar(QFrame):
         lay.setSpacing(10)
         header_layout.addWidget(self._controls)
 
-        self._chip = _Chip()
-        lay.addWidget(self._chip)
+        self._chip = _Chip(self)
+        self._chip.hide()  # Current alerts already have a status and reminder strip.
+        self._control_layout = lay
 
         self._camera_btn = QPushButton()
         self._camera_btn.setFont(T.ui_font(T.TYPE_CONTROL, 500))
@@ -273,6 +274,13 @@ class TitleBar(QFrame):
             self._chip.setAlert(self._chip._level)
             self._chip.updateGeometry()
 
+    def setSoundControl(self, button):
+        self._sound_btn = button
+        self._control_layout.insertWidget(1, button)
+        button.setFixedSize(148, 34)
+        button.setSizePolicy(QSizePolicy.Policy.Fixed, QSizePolicy.Policy.Fixed)
+        button.show()
+
     def setCameraState(self, state):
         zh = config.LANGUAGE == "zh"
         labels = {
@@ -303,4 +311,4 @@ class TitleBar(QFrame):
         pass
 
     def setAlert(self, level: int):
-        self._chip.setAlert(level)
+        self._chip.setAlert(-1)

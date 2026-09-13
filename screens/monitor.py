@@ -16,6 +16,7 @@ from widgets.selection_popup import StyledComboBox
 from widgets.status_light import StatusLight, state_color
 from widgets.camera_sim import AspectRatioHost
 from widgets.soft_icon import SoftIcon
+from widgets.care_tips import CareTips
 
 
 def _tr(zh, en):
@@ -119,7 +120,6 @@ class MonitorScreen(QWidget):
         self._preview_visible = True
         self._sound_enabled = bool(config.SOUND_ENABLED)
         self._camera_state = "off"
-        self._tip_index = 0
         self._last_state = None
         self._error = None
         self._alert_error = None
@@ -198,18 +198,23 @@ class MonitorScreen(QWidget):
         self._state_section.setStyleSheet(f"QWidget#StatePanel{{background:{T.C_CARD};border:none;border-radius:{T.R_CARD}px;}}")
         self._state_section.setMinimumWidth(408)
         state_layout = QVBoxLayout(self._state_section)
-        state_layout.setContentsMargins(16, 16, 16, 16)
+        state_layout.setContentsMargins(14, 12, 14, 12)
         state_layout.setSpacing(5)
         self._status_lbl = _label(19, T.C_TEXT, True)
-        self._status_lbl.setWordWrap(True)
+        self._status_lbl.setWordWrap(False)
+        self._status_lbl.setSizePolicy(QSizePolicy.Policy.Ignored, QSizePolicy.Policy.Fixed)
         status_header = QWidget()
         status_header.setFixedHeight(34)
+        status_header.setSizePolicy(QSizePolicy.Policy.Ignored, QSizePolicy.Policy.Fixed)
         status_row = QHBoxLayout(status_header)
         status_row.setContentsMargins(0,0,0,0)
         status_row.setSpacing(9)
         self._status_dot = StatusLight(size=18)
         status_row.addWidget(self._status_dot)
         status_row.addWidget(self._status_lbl, 1)
+        self._pause_button = _button()
+        self._pause_button.clicked.connect(self._toggle_pause)
+        status_row.addWidget(self._pause_button)
         state_layout.addWidget(status_header)
         self._message_body = _label(T.TYPE_BODY, T.C_TEXT2, wrap=True)
         state_layout.addWidget(self._message_body)
@@ -261,38 +266,26 @@ class MonitorScreen(QWidget):
         state_layout.addWidget(self._run_summary)
         state_layout.addWidget(self._rule_lbl)
         state_layout.addStretch(1)
-        tip_row = QHBoxLayout()
-        tip_row.setSpacing(8)
-        self._tip_label = _label(T.TYPE_CAPTION, T.C_TEXT2, wrap=True)
-        self._tip_label.setFixedHeight(40)
-        self._tip_next = _button()
-        self._tip_next.setFont(_font(12))
-        self._tip_next.setFixedSize(66, 28)
-        self._tip_next.setMinimumHeight(28)
-        self._tip_next.clicked.connect(self._next_tip)
-        tip_row.addWidget(self._tip_label, 1)
-        tip_row.addWidget(self._tip_next)
-        state_layout.addLayout(tip_row)
-        actions = QHBoxLayout()
-        actions.setSpacing(8)
-        self._pause_button = _button(primary=True)
-        self._pause_button.clicked.connect(self._toggle_pause)
+        # The sound control is reparented into the shared title bar by DrylessApp.
         self._sound_button = _button()
         self._sound_button.setCheckable(True)
         self._sound_button.clicked.connect(self._toggle_sound)
-        self._settings_button = _button()
-        self._settings_button.clicked.connect(self.settingsRequested.emit)
-        for button in (self._pause_button, self._sound_button, self._settings_button):
-            actions.addWidget(button, 1)
-        state_layout.addLayout(actions)
-        hero_layout.addWidget(self._state_section, 1)
+        self._sound_button.hide()
+        self.tips = CareTips()
+        right_column = QWidget()
+        right_layout = QVBoxLayout(right_column)
+        right_layout.setContentsMargins(0, 0, 0, 0)
+        right_layout.setSpacing(12)
+        right_layout.addWidget(self._state_section, 1)
+        right_layout.addWidget(self.tips)
+        hero_layout.addWidget(right_column, 1)
         root.addWidget(hero, 4)
 
         recent = QWidget()
         recent.setObjectName("RecentPanel")
         recent.setAttribute(Qt.WidgetAttribute.WA_StyledBackground)
         recent.setStyleSheet(f"QWidget#RecentPanel{{background:{T.C_CARD};border:none;border-radius:{T.R_CARD}px;}}")
-        recent.setFixedHeight(164)
+        recent.setFixedHeight(152)
         recent_layout = QVBoxLayout(recent)
         recent_layout.setContentsMargins(20, 10, 20, 10)
         recent_layout.setSpacing(5)
@@ -339,7 +332,7 @@ class MonitorScreen(QWidget):
             self._page_title: 35,
             self._camera_title: 34,
             self._status_lbl: 34,
-            self._message_body: 42,
+            self._message_body: 36,
             self._since_lbl: 22,
             self._secs_lbl: 34,
             self._total_label: 22,
@@ -359,7 +352,7 @@ class MonitorScreen(QWidget):
         self._timer_row.setFixedHeight(60)
         self._secs_lbl.setAlignment(Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignBottom)
         self._total_value.setAlignment(Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignBottom)
-        for button in (self._pause_button, self._sound_button, self._settings_button):
+        for button in (self._pause_button, self._sound_button):
             button.setFixedHeight(36)
         self._preview_button.setFixedHeight(32)
         self._stats_button.setFixedHeight(32)
@@ -376,12 +369,13 @@ class MonitorScreen(QWidget):
         reserve(self._preview_button, ("隐藏预览", "显示预览", "Hide", "Show"), 24)
         reserve(self._pause_button, ("恢复提醒", "暂停提醒", "Resume alerts", "Pause alerts"), 24)
         reserve(self._sound_button, ("声音：开", "声音：关", "声音不可用", "Sound: on", "Sound: off", "Sound unavailable"), 24)
-        reserve(self._settings_button, ("设置", "Settings"), 24)
-        for button in (self._pause_button, self._sound_button, self._settings_button):
+        for button in (self._pause_button, self._sound_button):
             button.setMinimumWidth(0)
             button.setMaximumWidth(16777215)
             button.setSizePolicy(QSizePolicy.Policy.Ignored, QSizePolicy.Policy.Fixed)
         reserve(self._stats_button, ("更多统计", "More statistics"), 24)
+        self._pause_button.setFixedSize(128, 30)
+        self._pause_button.setSizePolicy(QSizePolicy.Policy.Fixed, QSizePolicy.Policy.Fixed)
 
     def resetSession(self):
         self._last_state = None
@@ -397,21 +391,6 @@ class MonitorScreen(QWidget):
             self.camera.setFrame(None)
         self._refresh_controls()
         self._render_state()
-
-    def _next_tip(self):
-        self._tip_index = (self._tip_index + 1) % 3
-        self._refresh_tip()
-
-    def _refresh_tip(self):
-        tips = [
-            (f"每 {PRESENCE_MINUTES} 分钟，看约 6 米远处至少 20 秒。", f"Every {PRESENCE_MINUTES} minutes, look 20 feet away for 20 seconds."),
-            ("看屏幕时，记得自然眨眼。", "Remember to blink naturally while using your screen."),
-            ("减少屏幕反光，避免空调直吹眼睛。", "Reduce screen glare; keep direct airflow away from your eyes."),
-        ]
-        self._tip_label.setText(_tr(*tips[self._tip_index]))
-        self._tip_label.setToolTip("Mayo Clinic · Eyestrain / diagnosis and treatment")
-        self._tip_next.setText(_tr("换一条", "Next tip"))
-        self._tip_next.setAccessibleName(_tr("下一条护眼提示", "Next eye-care tip"))
 
     def _toggle_preview(self):
         self.setPreviewVisible(not self._preview_visible)
@@ -638,6 +617,7 @@ class MonitorScreen(QWidget):
             if not stopped:
                 self._message_body.setText(_tr("正在准备摄像头，检测就绪后开始记录。", "Preparing the camera. Recording starts when tracking is ready.") if self._camera_state == "starting" else _tr("正在释放设备，画面与提醒已停止。", "Releasing the device. Preview and reminders have stopped."))
             self._rule_lbl.setText(_tr("检测与提醒均已停止", "Detection and reminders are stopped") if stopped else _tr("检测就绪后开始提醒", "Reminders start when tracking is ready"))
+        self.tips.setAlertActive(self._camera_state == "running" and (level >= 0 or micro_active))
         self.statusChanged.emit(status_key, status)
 
     def retranslate(self):
@@ -652,7 +632,6 @@ class MonitorScreen(QWidget):
         self._secs_lbl.setToolTip(_tr("检测到眨眼或重新识别人脸时重新计时。", "Resets after a detected blink or when your face is detected again."))
         self._preview_hidden_title.setText(_tr("预览已隐藏", "Preview hidden"))
         self._preview_hidden_text.setText(_tr("隐藏画面不会停止检测。", "Hiding the image does not stop detection."))
-        self._settings_button.setText(_tr("设置", "Settings"))
         self._stats_button.setText(_tr("更多统计", "More statistics"))
         self._trend_title.setText(_tr("眨眼节律", "Blink rhythm"))
         self._frequency_unit.setText(_tr("次/分 · 均值", "/min · avg"))
@@ -665,7 +644,7 @@ class MonitorScreen(QWidget):
         self._window_combo.setCurrentIndex(max(0, self._window_combo.findData(selected)))
         self._window_combo.blockSignals(False)
         self._window_combo.setAccessibleName(_tr("趋势时间窗口", "Trend time window"))
-        self._refresh_tip()
+        self.tips.retranslate()
         self._refresh_controls()
         self._refresh_trend_caption()
         self._render_state()

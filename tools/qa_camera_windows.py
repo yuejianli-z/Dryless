@@ -80,7 +80,7 @@ try:
   check('closed session summary frozen',window.monitor._last_state['total']==snapshot['total'])
   check('off pause unavailable',not tray._actions['pause'].isEnabled() and not window.monitor._pause_button.isEnabled())
   app.processEvents();QTest.qWait(80);app.processEvents()
-  old_geometry={w:w.geometry() for w in (window.titlebar._camera_btn,window.titlebar._lang_btn,window.monitor._pause_button,window.monitor._sound_button,window.monitor._settings_button)}
+  old_geometry={w:w.geometry() for w in (window.titlebar._camera_btn,window.titlebar._lang_btn,window.monitor._pause_button,window.monitor._sound_button)}
   for language in ('zh','en'):
    config.LANGUAGE=language;window._on_language_changed();app.processEvents();QTest.qWait(80);app.processEvents()
    check('language never restarts camera '+language,window._camera_state=='off' and len(Capture.instances)==1)

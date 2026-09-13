@@ -404,6 +404,7 @@ class DrylessApp(QMainWindow):
         self.monitor = MonitorScreen()
         self.stats = StatsScreen()
         self.settings = SettingsScreen()
+        self.titlebar.setSoundControl(self.monitor._sound_button)
         for page in (self.monitor, self.stats, self.settings):
             self.titlebar.setPageHeader(page.page_header)
         self.titlebar.setPageHeader(self.monitor.page_header)
