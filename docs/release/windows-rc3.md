@@ -19,7 +19,7 @@
 - `python -B -m unittest discover -s tests -v`：22项通过。
 - `python -B tools/qa_reminders_windows.py`：66项通过。
 - `python -B tools/qa_ui.py`：185项通过，中英文/1100×700和1240×780、三页与提醒状态；合成画面，无私人图像。
-- `python -B tools/qa_camera_windows.py`：37项通过，真实Qt线程+模拟采集；快速开关、取消启动、异常清理、旧事件、托盘、切语言、退出。
+- `python -B tools/qa_camera_windows.py`：38项通过，真实Qt线程+模拟采集；快速开关、取消启动、异常清理、旧事件、托盘、切语言、退出。
 - 包内自检及真机摄像头重开结果另记录在 windows-rc3-validation.json；没有该报告时不视为已验证。
 
 ## 尚未完成的整版验收

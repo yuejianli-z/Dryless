@@ -100,7 +100,7 @@ class _CameraHero(QWidget):
         margins = self.layout().contentsMargins()
         image_height = max(1, self.height() - margins.top() - margins.bottom() - self._heading.height() - 8 - 32)
         available = self.width() - margins.left() - margins.right() - 24
-        width = max(1, min(round(image_height * self._ratio) + 32, int(available * .56), available - 390))
+        width = max(1, min(round(image_height * self._ratio) + 32, int(available * .56), available - 408))
         if self._column.width() != width or self._column.minimumWidth() != width:
             self._column.setFixedWidth(width)
 
@@ -196,7 +196,7 @@ class MonitorScreen(QWidget):
         self._state_section.setObjectName("StatePanel")
         self._state_section.setAttribute(Qt.WidgetAttribute.WA_StyledBackground)
         self._state_section.setStyleSheet(f"QWidget#StatePanel{{background:{T.C_CARD};border:none;border-radius:{T.R_CARD}px;}}")
-        self._state_section.setMinimumWidth(0)
+        self._state_section.setMinimumWidth(408)
         state_layout = QVBoxLayout(self._state_section)
         state_layout.setContentsMargins(16, 16, 16, 16)
         state_layout.setSpacing(5)
@@ -380,7 +380,7 @@ class MonitorScreen(QWidget):
         for button in (self._pause_button, self._sound_button, self._settings_button):
             button.setMinimumWidth(0)
             button.setMaximumWidth(16777215)
-            button.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed)
+            button.setSizePolicy(QSizePolicy.Policy.Ignored, QSizePolicy.Policy.Fixed)
         reserve(self._stats_button, ("更多统计", "More statistics"), 24)
 
     def resetSession(self):

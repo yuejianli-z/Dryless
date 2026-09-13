@@ -209,7 +209,7 @@ class DetectorWorker(QThread):
             except Exception as e:
                 self._alert = None
                 self.alertErrorReported.emit(t("err_alert", e=e))
-    
+
             if self._stop_requested.is_set():
                 return
             cap = cv2.VideoCapture(config.CAMERA_INDEX)
@@ -218,12 +218,12 @@ class DetectorWorker(QThread):
             if not cap.isOpened():
                 self.errorReported.emit(t("err_camera", index=config.CAMERA_INDEX))
                 return
-    
+
             self._running = not self._stop_requested.is_set() and not self.isInterruptionRequested()
             self._session_start = time.time()
             frame_count = 0
             read_failures = 0
-    
+
             while self._running and not self._stop_requested.is_set() and not self.isInterruptionRequested():
                 ok, frame = cap.read()
                 if not ok:
@@ -237,24 +237,24 @@ class DetectorWorker(QThread):
                 frame_count += 1
                 if frame_count == 1:
                     self.captureReady.emit()
-    
+
                 if frame_count % max(1, config.PROCESS_EVERY_N_FRAMES) == 0:
                     frame, blinked, no_blink_sec, _ = self._detector.process_frame(frame)
                     if self._stop_requested.is_set():
                         break
-    
+
                     sample_time = time.monotonic()
                     sample_valid = self._detector.face_detected and self._detector._ratio is not None
                     if self._previous_sample_time is not None and self._previous_sample_valid and sample_valid:
                         self._minute_valid_seconds += min(1.0, max(0.0, sample_time - self._previous_sample_time))
                     self._previous_sample_time = sample_time
                     self._previous_sample_valid = sample_valid
-    
+
                     if blinked:
                         self._minute_blinks += 1
                     level, micro = self._update_reminders(
                         self._detector.face_detected, blinked, no_blink_sec, sample_time)
-    
+
                     # 分钟聚合
                     cur_min = int((time.time() - self._session_start) / 60)
                     if cur_min != self._last_minute_bucket:
@@ -271,7 +271,7 @@ class DetectorWorker(QThread):
                         self._minute_blinks = 0
                         self._minute_valid_seconds = 0.0
                         self._last_minute_bucket = cur_min
-    
+
                     # rate 估算，clamp 到生理上限 30次/分钟
                     elapsed_min = max(1 / 60.0, (time.time() - self._session_start) / 60.0)
                     rate = self._detector.blink_count / elapsed_min
@@ -280,7 +280,7 @@ class DetectorWorker(QThread):
                         near = self._minute_blinks / sec_in * 60.0
                         rate = (rate + near) / 2.0
                     rate = min(rate, 30.0)
-    
+
                     self.stats.emit({
                         "paused": self._paused,
                         "microbreak_active": micro["active"],
@@ -296,15 +296,15 @@ class DetectorWorker(QThread):
                         "minute_history": list(self._minute_history),
                         "minute_valid_seconds": list(self._minute_valid_history),
                     })
-    
+
                 if frame_count % 3 == 0:
                     rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
                     h, w, _ = rgb.shape
                     img = QImage(rgb.data, w, h, 3 * w, QImage.Format.Format_RGB888).copy()
                     self.frameReady.emit(img)
-    
+
                 self.msleep(10)
-    
+
         except Exception as error:
             if not self._stop_requested.is_set():
                 self.errorReported.emit(str(error))
@@ -481,7 +481,9 @@ class DrylessApp(QMainWindow):
         self.cameraStateChanged.emit(state)
 
     def _start_worker(self):
-        self.setCameraEnabled(True, persist=False)
+        # A later startup callback cannot override an explicit stop click.
+        if config.CAMERA_ENABLED_ON_START:
+            self.setCameraEnabled(True, persist=False)
 
     def toggleCamera(self):
         self.setCameraEnabled(self._camera_state not in ("starting", "running"))

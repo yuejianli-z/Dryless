@@ -49,7 +49,9 @@ try:
   config.SOUND_ENABLED=False
   window=ui.DrylessApp(start_worker=False);window.show()
   check('first install camera off',window._camera_state=='off' and not Capture.instances)
-  window.setCameraEnabled(False);window.setCameraEnabled(True)
+  window.setCameraEnabled(False);window._start_worker()
+  check('late startup honors explicit off',window._camera_state=='off' and not Capture.instances)
+  window.setCameraEnabled(True)
   first=window.worker
   window.setCameraEnabled(True)
   check('double start keeps one worker',window.worker is first)
@@ -82,6 +84,7 @@ try:
   for language in ('zh','en'):
    config.LANGUAGE=language;window._on_language_changed();app.processEvents();QTest.qWait(80);app.processEvents()
    check('language never restarts camera '+language,window._camera_state=='off' and len(Capture.instances)==1)
+   report['geometry_'+language]=[(w.text(),rect.getRect(),w.geometry().getRect()) for w,rect in old_geometry.items()]
    check('stable control geometry '+language,all(w.geometry()==rect for w,rect in old_geometry.items()))
    for page in ('settings','stats','monitor'):window._on_nav(page)
   check('navigation never restarts camera',len(Capture.instances)==1)
