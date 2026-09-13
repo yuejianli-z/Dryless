@@ -1,5 +1,6 @@
 """Camera-presence microbreak timing, independent of blink detection."""
-PRESENCE_SECONDS = 25 * 60
+PRESENCE_MINUTES = 20
+PRESENCE_SECONDS = PRESENCE_MINUTES * 60
 PROMPT_SECONDS = 30
 ABSENCE_RESET_SECONDS = 20
 TRACKING_GRACE_SECONDS = 5

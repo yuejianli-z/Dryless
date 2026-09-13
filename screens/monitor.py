@@ -9,6 +9,7 @@ from PyQt6.QtWidgets import (
     QStackedWidget, QSizePolicy, QStylePainter, QStyleOptionComboBox, QStyle,
 )
 import config
+from microbreak import PRESENCE_MINUTES
 import theme as T
 from widgets import CameraView, TrendChart
 from widgets.selection_popup import StyledComboBox
@@ -517,7 +518,7 @@ class MonitorScreen(QWidget):
             level = -1
             status_key = "detected"
             status = _tr("该起来活动一下了", "Time to move")
-            body = _tr("已连续使用 25 分钟，起来走动一下。", "You’ve been here for 25 minutes. Take a short walk.")
+            body = _tr(f"已连续在场 {PRESENCE_MINUTES} 分钟，起来活动一下吧。", f"You’ve been here for {PRESENCE_MINUTES} minutes. Take a short walk.")
         self._status_key = status_key
         self._status_lbl.setText(status)
         self._status_dot.setState(status_key)

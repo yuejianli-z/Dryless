@@ -33,6 +33,15 @@ def run(app, output, camera=False):
             for level in range(3):
                 with wave.open(str(base / 'sounds' / family / f'alert{level}.wav'), 'rb') as sound:
                     check(f'wav:{family}:{level}', sound.getnframes() > 0 and sound.getsampwidth() == 2)
+        # Exercise the packaged timer, not just the reported version label.
+        from microbreak import MicrobreakController
+        clock = MicrobreakController()
+        early = []
+        for second in range(1200):
+            if clock.update(True, second)['started']:
+                early.append(second)
+        check('microbreak-no-early-trigger', not early)
+        check('microbreak-at-20-minutes', clock.update(True, 1200)['started'])
         from PyQt6.QtGui import QFontDatabase
         for family in ('Dryless Sans', 'Dryless CJK'):
             check('font:' + family, family in QFontDatabase.families())

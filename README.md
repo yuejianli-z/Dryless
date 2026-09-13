@@ -8,21 +8,23 @@ Local desktop blink reminders, on-device camera processing, and numeric history.
 ## Current development status / 当前状态
 
 This branch contains the latest Windows redesign and the handoff for macOS.
-Target release: **0.2.0**; current candidate: **0.2.0-rc.1**.
-macOS is **not yet implemented or verified**. Existing public Releases may be older.
+Target release: **0.2.0**; current candidate: **0.2.0-rc.2**.
+A native SwiftUI macOS implementation is available on `codex/macos-native`; its functional gaps are
+documented in [Mac review](docs/MAC_REVIEW.md). It has **not passed cross-platform acceptance**.
+Existing public Releases may be older. The F2 contract lists target behavior; it is not a claim that all gaps are fixed.
 
 **Mac 上的 Codex：从 [docs/START_HERE.md](docs/START_HERE.md) 开始。**
 
 - Shared requirements: [Feature parity](docs/FEATURE_PARITY.md)
 - Mac implementation: [Mac handoff](docs/MAC_HANDOFF.md)
-- Actual results: [Windows](docs/release/windows.md) / [macOS](docs/release/macos.md)
+- Actual results: [Windows rc.2](docs/release/windows-rc2.md) / [Windows rc.1 archive](docs/release/windows.md) / [macOS](docs/release/macos.md)
 - Publication gate: [Release checklist](docs/RELEASE_CHECKLIST.md)
 
 ## Features
 
 - Live camera and blink detection; preview may be hidden while detection continues.
 - Three-stage blink reminders; Polite, Sharp, Original and Blip; play all three.
-- Fixed 25-minute presence microbreak, with priority over blink reminders.
+- Fixed 20-minute presence microbreak, with priority over blink reminders.
 - Monitor rhythm cells; historical time bubbles with day/week/month aggregation and CSV export.
 - Chinese/English interface, saved settings, local numerical history, desktop tray.
 - Approved green rounded interface and original detailed eye logo.
@@ -39,7 +41,7 @@ python -m venv .venv
 .venv\Scripts\python build.py
 ```
 
-Output: `dist/0.2.0-rc.1/Dryless.exe` (portable app, not an installer).
+Output: `dist/0.2.0-rc.2/Dryless.exe` (portable app, not an installer).
 No Python is required on the destination machine for the packaged EXE.
 Packaging itself does not establish clean-machine or hardware compatibility.
 The Windows candidate is unsigned. Keep old builds; the script uses versioned output.
