@@ -31,7 +31,7 @@ class _Pages(QWidget):
         p = QPainter(self); p.setRenderHint(QPainter.RenderHint.Antialiasing)
         p.setPen(Qt.PenStyle.NoPen)
         for i in range(len(TIPS)):
-            p.setBrush(QColor(T.BRAND if i == self.index else '#B9CDB7'))
+            p.setBrush(QColor(T.BRAND if i == self.index else T.C_BORDER))
             p.drawRoundedRect(QRectF(i * 12, 3, 10 if i == self.index else 5, 5), 2.5, 2.5)
 
 class CareTips(QFrame):
@@ -45,12 +45,12 @@ class CareTips(QFrame):
         self.setObjectName('CareTips')
         self.setFixedHeight(106)
         self.setFocusPolicy(Qt.FocusPolicy.StrongFocus)
-        self.setStyleSheet(f'QFrame#CareTips{{background:#E5EDE2;border:1px solid #D8E3D3;border-radius:{T.R_CARD}px;}}'
+        self.setStyleSheet(f'QFrame#CareTips{{background:{T.C_CARD};border:none;border-radius:{T.R_CARD}px;}}'
                           f'QFrame#CareTips:focus{{border-color:{T.CONTROL_FOCUS};}}')
         layout = QVBoxLayout(self); layout.setContentsMargins(14, 10, 14, 12); layout.setSpacing(7)
         heading = QHBoxLayout(); heading.setContentsMargins(0,0,0,0)
         self._caption = QLabel(); self._caption.setFont(T.ui_font(11, 500))
-        self._caption.setStyleSheet('color:#657D60;background:transparent;')
+        self._caption.setStyleSheet(f'color:{T.C_TEXT2};background:transparent;')
         self._caption.setFixedHeight(16)
         self._pages = _Pages()
         heading.addWidget(self._caption); heading.addStretch(); heading.addWidget(self._pages)
@@ -61,10 +61,10 @@ class CareTips(QFrame):
         content.addWidget(self._icon, 0, Qt.AlignmentFlag.AlignVCenter)
         text = QVBoxLayout(); text.setContentsMargins(0,0,0,0); text.setSpacing(2)
         self._title = QLabel(); self._title.setFont(T.ui_font(15, 600)); self._title.setFixedHeight(21)
-        self._title.setStyleSheet('color:#355A48;background:transparent;')
+        self._title.setStyleSheet(f'color:{T.C_TEXT};background:transparent;')
         self._body = QLabel(); self._body.setFont(T.ui_font(13)); self._body.setWordWrap(True)
         self._body.setFixedHeight(36); self._body.setAlignment(Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignTop)
-        self._body.setStyleSheet('color:#536A50;background:transparent;')
+        self._body.setStyleSheet(f'color:{T.C_TEXT2};background:transparent;')
         text.addWidget(self._title); text.addWidget(self._body); content.addLayout(text,1)
         layout.addLayout(content)
         self._timer = QTimer(self); self._timer.setInterval(self.INTERVAL_MS)
@@ -80,7 +80,7 @@ class CareTips(QFrame):
         self._pages.index = self._index; self._pages.update()
         self.setAccessibleName(('护眼小贴士', 'Eye-care tip')[lang] + f' {self._index+1}/{len(TIPS)} · ' + title[lang])
         self.setAccessibleDescription(body[lang])
-        self.setToolTip(('每20秒轮播，悬停暂停；方向键可切换。', 'Changes every 20 seconds. Hover to pause; use arrow keys to browse.')[lang])
+        self.setToolTip('')
 
     def _can_rotate(self):
         return self.isVisible() and not self.window().isMinimized() and not self._hovered and not self.hasFocus() and not self._alert_active

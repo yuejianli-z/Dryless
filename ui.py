@@ -477,6 +477,12 @@ class DrylessApp(QMainWindow):
 
     def _set_camera_state(self, state):
         self._camera_state = state
+        from widgets.soft_icon import set_camera_active, icon as state_icon
+        set_camera_active(state == 'running')
+        self.sidebar._buttons['monitor']._refresh()
+        current_icon = state_icon('eye', 256)
+        self.setWindowIcon(current_icon)
+        QApplication.instance().setWindowIcon(current_icon)
         self.titlebar.setCameraState(state)
         self.monitor.setCameraState(state)
         self.cameraStateChanged.emit(state)

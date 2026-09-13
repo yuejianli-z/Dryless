@@ -2,6 +2,17 @@
 from functools import lru_cache
 from pathlib import Path
 import sys
+import weakref
+
+_CAMERA_ACTIVE = False
+_LIVE_ICONS = weakref.WeakSet()
+
+def set_camera_active(active):
+    global _CAMERA_ACTIVE
+    _CAMERA_ACTIVE = bool(active)
+    for widget in list(_LIVE_ICONS):
+        widget.update()
+
 
 from PyQt6.QtCore import Qt, QRectF, QSize
 from PyQt6.QtGui import QColor, QIcon, QImage, QPainter, QPainterPath, QPen, QPixmap
@@ -10,10 +21,17 @@ import theme as T
 
 
 @lru_cache(maxsize=32)
-def _brand_eye_pixmap(color, pixel_size):
+def _brand_eye_pixmap(color, pixel_size, closed=False):
     """Tint the existing logo at paint time; retain its alpha and white details."""
     base = Path(getattr(sys, '_MEIPASS', Path(__file__).resolve().parents[1]))
-    source = QImage(str(base / 'assets' / 'icons' / 'desktop-eye-transparent.png'))
+    source = QImage(str(base / 'assets' / 'icons' / ('eye-closed-source.png' if closed else 'desktop-eye-transparent.png')))
+    if closed and not source.isNull():
+        # Render the generated monochrome artwork as an alpha mask, preserving its edges.
+        mask = source.convertToFormat(QImage.Format.Format_Grayscale8)
+        mask.invertPixels()
+        ink = QImage(source.size(), QImage.Format.Format_ARGB32)
+        ink.fill(Qt.GlobalColor.black); ink.setAlphaChannel(mask)
+        source = ink
     if source.isNull():
         return QPixmap()
     tinted = source.convertToFormat(QImage.Format.Format_ARGB32_Premultiplied)
@@ -37,19 +55,18 @@ def _glyph(p, name):
     pen.setJoinStyle(Qt.PenJoinStyle.RoundJoin)
     p.setPen(pen)
     p.setBrush(Qt.BrushStyle.NoBrush)
-    if name in ('brand_eye', 'eye'):
+    if name in ('brand_eye', 'eye', 'eye_closed', 'eye_open'):
         p.setRenderHint(QPainter.RenderHint.SmoothPixmapTransform)
         pixel_size = max(1, round(20 * abs(p.deviceTransform().m11())))
-        pix = _brand_eye_pixmap(T.BRAND, pixel_size)
+        closed = name == 'eye_closed' or (name != 'eye_open' and not _CAMERA_ACTIVE)
+        pix = _brand_eye_pixmap(T.BRAND, pixel_size, closed)
         p.drawPixmap(QRectF(0, 0, 20, 20), pix, QRectF(pix.rect()))
-    elif name == 'eye_closed':
-        path = QPainterPath(); path.moveTo(2, 8)
-        path.cubicTo(6, 14, 14, 14, 18, 8); p.drawPath(path)
-        p.drawLine(5, 11, 3, 14); p.drawLine(10, 13, 10, 16); p.drawLine(15, 11, 17, 14)
     elif name == 'distance':
-        path=QPainterPath();path.moveTo(2,15);path.lineTo(7,8);path.lineTo(10,12)
-        path.lineTo(13,9);path.lineTo(18,15);p.drawPath(path);p.drawLine(2,17,18,17)
-        p.drawEllipse(QRectF(12,3,4,4))
+        # A quiet horizon and sun: continuous curves, no broken mountain strokes.
+        p.drawEllipse(QRectF(7,3,6,6))
+        path=QPainterPath();path.moveTo(2,13)
+        path.cubicTo(7,11,13,11,18,13);p.drawPath(path)
+        p.drawLine(4,16,16,16)
     elif name == 'globe':
         p.drawEllipse(QRectF(3,3,14,14))
         p.drawEllipse(QRectF(7,3,6,14))
@@ -106,6 +123,7 @@ class SoftIcon(QWidget):
     def __init__(self, name, size=26, glyph_size=15, parent=None):
         super().__init__(parent)
         self._name=name;self._size=size;self._glyph_size=glyph_size
+        _LIVE_ICONS.add(self)
         self.setFixedSize(size,size)
         self.setAttribute(Qt.WidgetAttribute.WA_TransparentForMouseEvents)
         self.setAccessibleName('')

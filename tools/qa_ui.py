@@ -43,7 +43,7 @@ try:
   base=dict(face=True,eye_open=True,eye_ratio=.85,no_blink=2.4,rate=7.3,total=191,alert_level=-1,session_sec=676,minute_history=[12,18,16,20,19,14,18,17,22,18,16],minute_valid_seconds=[60]*11)
   check('preview-preference-restored',not screen._preview_visible)
   check('camera-default-off',window._camera_state=='off' and not window._accept_camera)
-  screen.setCameraState('running');window.setPreviewVisible(True);window.titlebar.setCameraState('running')
+  window._set_camera_state('running');window.setPreviewVisible(True)
   for lang in ('zh','en'):
    window._camera_state='running';config.LANGUAGE=lang;window._on_language_changed()
    for width,height in ((1240,780),(1100,700)):

@@ -478,16 +478,18 @@ class MonitorScreen(QWidget):
             self._preview_hidden_text.setText(_tr("请稍候。", "Please wait."))
         if self._camera_state == "error":
             self._preview_hidden_title.setText(_tr("摄像头不可用", "Camera unavailable"))
-            self._preview_hidden_text.setText(_tr("检查设备后，点击右上角重试。", "Check your device, then use Retry camera above."))
+            self._preview_hidden_text.setText(_tr("检查设备后，点击右上角重试。", "Check your device, then click the camera control above."))
         self._preview_button.setText(_tr("隐藏预览", "Hide") if self._preview_visible else _tr("显示预览", "Show"))
         self._pause_button.setText(_tr("恢复提醒", "Resume alerts") if self._paused else _tr("暂停提醒", "Pause alerts"))
         self._sound_button.setText(_tr("声音：开", "Sound: on") if self._sound_enabled else _tr("声音：关", "Sound: off"))
         if self._alert_error:
-            self._sound_button.setText(_tr("声音故障", "Audio error"))
+            self._sound_button.setText(_tr("声音：故障", "Sound: error"))
         self._sound_button.setEnabled(not self._alert_error)
         self._preview_button.setToolTip(_tr("仅隐藏画面，摄像头检测继续运行。", "Hide the image only. Camera detection keeps running."))
         self._pause_button.setToolTip(_tr("暂停声音和界面提醒，检测与计数继续。", "Pause sound and visual alerts. Detection and counts continue."))
-        self._sound_button.setToolTip(self._alert_error or _tr("关闭声音后，界面提醒仍然保留。", "Visual alerts remain available when sound is off."))
+        self._sound_button.setToolTip("")
+        self._sound_button.setAccessibleName(self._sound_button.text())
+        self._sound_button.setAccessibleDescription(self._alert_error or "")
 
     def _error_message(self, message, audio=False):
         """Keep a readable reason in the status area and the full error in its tooltip."""
@@ -568,7 +570,7 @@ class MonitorScreen(QWidget):
             _tr("正在提醒", "Alert active") if level >= 0 else _tr("提醒已开启", "Alerts enabled")
         )
         if self._alert_error and not self._paused:
-            reminder_text = _tr("声音故障", "Audio error")
+            reminder_text = _tr("声音：故障", "Sound: error")
         if micro_active and not self._alert_error:
             reminder_text = _tr("微休息 · 眨眼提醒暂缓", "Break · blink alerts on hold")
         self._reminder_status_lbl.setText(reminder_text)

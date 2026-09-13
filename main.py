@@ -75,9 +75,11 @@ def create_tray(app, window, icon):
         actions['pause'].setEnabled(state == 'running')
         actions['pause'].setChecked(window._paused)
         actions['sound'].setChecked(config.SOUND_ENABLED)
+        actions['sound'].setText(window.monitor._sound_button.text())
+        actions['camera'].setIcon(glyph_icon('eye_open' if state == 'running' else 'eye_closed', 20))
         pix = QPixmap(32, 32); pix.fill(Qt.GlobalColor.transparent)
         painter = QPainter(pix); painter.setRenderHint(QPainter.RenderHint.Antialiasing)
-        glyph_icon('eye_closed' if state == 'off' else 'eye', 32).paint(painter, 0, 0, 32, 32)
+        glyph_icon('eye_open' if state == 'running' else 'eye_closed', 32).paint(painter, 0, 0, 32, 32)
         if state != 'off' and (window._paused or state != 'running'):
             color = T.C_TEXT3 if window._paused else (T.DANGER if state == 'error' else T.WARN)
             painter.setPen(Qt.PenStyle.NoPen); painter.setBrush(QColor(color))
@@ -131,7 +133,7 @@ def main():
             return 2
         return run(app, sys.argv[index + 1], camera=(flag == "--camera-smoke"))
     window = DrylessApp()
-    window.setWindowIcon(icon)
+    # DrylessApp applies the current camera-state icon to the window/taskbar.
     if QSystemTrayIcon.isSystemTrayAvailable():
         tray = create_tray(app, window, icon)
         window._tray_resident = True

@@ -259,8 +259,8 @@ class TitleBar(QFrame):
         lang = "zh" if str(getattr(config, "LANGUAGE", "en")).lower().startswith("zh") else "en"
         label = "Language"
         self._lang_btn.setText(label)
-        self._lang_btn.setToolTip("界面语言：简体中文" if lang == "zh" else "Interface language: English")
-        self._lang_btn.setAccessibleName(self._lang_btn.toolTip())
+        self._lang_btn.setToolTip("")
+        self._lang_btn.setAccessibleName("界面语言：简体中文" if lang == "zh" else "Interface language: English")
         self._lang_btn.setStyleSheet(
             f"QPushButton{{background:transparent;border:none;outline:none;"
             f"border-radius:8px;font-size:11px;font-weight:500;"
@@ -279,28 +279,33 @@ class TitleBar(QFrame):
         self._control_layout.insertWidget(1, button)
         button.setFixedSize(148, 34)
         button.setSizePolicy(QSizePolicy.Policy.Fixed, QSizePolicy.Policy.Fixed)
+        button.setStyleSheet(self._control_style())
+        button.setToolTip("")
         button.show()
 
     def setCameraState(self, state):
         zh = config.LANGUAGE == "zh"
         labels = {
-            "off": ("开启摄像头", "Start camera"),
-            "starting": ("取消开启", "Cancel start"),
-            "running": ("关闭摄像头", "Stop camera"),
-            "stopping": ("正在关闭…", "Stopping…"),
-            "error": ("重试摄像头", "Retry camera"),
+            "off": ("摄像头：关", "Camera: off"),
+            "starting": ("摄像头：启动中", "Camera: starting"),
+            "running": ("摄像头：开", "Camera: on"),
+            "stopping": ("摄像头：关闭中", "Camera: stopping"),
+            "error": ("摄像头：故障", "Camera: error"),
         }
         self._camera_btn.setText(labels[state][0 if zh else 1])
         self._camera_btn.setAccessibleName(self._camera_btn.text())
+        self._camera_btn.setAccessibleDescription(("点击切换；启动中点击可取消。" if zh else "Click to toggle; click during startup to cancel."))
         self._camera_btn.setEnabled(state != "stopping")
-        primary = state in ("off", "error")
-        self._camera_btn.setStyleSheet(
-            f"QPushButton{{background:{T.BRAND if primary else T.C_CARD};"
-            f"color:{'#FFFFFF' if primary else T.C_TEXT};border:1px solid {T.BRAND if primary else T.C_BORDER};"
-            "border-radius:8px;padding:4px 8px;text-align:center;}"
-            f"QPushButton:hover{{background:{T.BRAND_HOVER if primary else T.C_SURFACE};}}"
-            f"QPushButton:disabled{{color:{T.C_TEXT3};background:{T.C_SURFACE};}}")
-        self._camera_btn.setToolTip("关闭会释放摄像头并停止检测和提醒。" if zh else "Stopping releases the camera and stops detection and reminders.")
+        self._camera_btn.setToolTip("")
+        self._camera_btn.setStyleSheet(self._control_style())
+
+    @staticmethod
+    def _control_style():
+        return (f"QPushButton{{background:{T.C_CARD};color:{T.C_TEXT};border:1px solid {T.C_BORDER};"
+                "border-radius:8px;padding:4px 8px;text-align:center;}"
+                f"QPushButton:hover{{background:{T.C_SURFACE};}}"
+                f"QPushButton:focus{{border-color:{T.CONTROL_FOCUS};}}"
+                f"QPushButton:disabled{{color:{T.C_TEXT3};background:{T.C_SURFACE};}}")
 
     def setPageHeader(self, header):
         if self._page_headers.indexOf(header) < 0:
