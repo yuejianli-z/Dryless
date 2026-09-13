@@ -43,3 +43,8 @@ update_cifen.py
 
 # Private archive created during repo cleanup
 _private_keep/
+
+# Local design experiments and test output
+.design/
+qa-output/
+release-output/

@@ -51,7 +51,7 @@ class HealthGauge(QWidget):
             p.drawArc(rect, int(start_deg * 16), int(-sweep_deg * 16 * pct))
 
         # center text
-        f = QFont(T.FONT_UI)
+        f = T.ui_font()
         f.setFamilies([T.FONT_UI] + T.FONT_FB)
         f.setPixelSize(22)
         f.setWeight(QFont.Weight.Bold)
@@ -60,7 +60,7 @@ class HealthGauge(QWidget):
         p.drawText(QRectF(0, CY - 12, 108, 22), Qt.AlignmentFlag.AlignCenter,
                    str(self._score))
 
-        f2 = QFont(T.FONT_UI)
+        f2 = T.ui_font()
         f2.setFamilies([T.FONT_UI] + T.FONT_FB)
         f2.setPixelSize(9)
         p.setFont(f2)

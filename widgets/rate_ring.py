@@ -28,10 +28,8 @@ class RateRing(QWidget):
 
         if self._alert >= 0:
             sc = QColor(T.ALERT_LEVELS[self._alert]["c"])
-        elif 15 <= self._rate <= 20:
-            sc = QColor(T.BRAND)
         else:
-            sc = QColor(T.WARN)
+            sc = QColor(T.BRAND_MID)
 
         # track
         pen = QPen(QColor(T.C_BORDER))
@@ -47,7 +45,7 @@ class RateRing(QWidget):
         p.drawArc(QRectF(cx - r, cy - r, 2 * r, 2 * r), 90 * 16, span)
 
         # text
-        f = QFont(T.FONT_UI)
+        f = T.ui_font()
         f.setFamilies([T.FONT_UI] + T.FONT_FB)
         f.setPixelSize(15)
         f.setWeight(QFont.Weight.Bold)
@@ -56,9 +54,9 @@ class RateRing(QWidget):
         p.drawText(QRectF(0, 18, 72, 18), Qt.AlignmentFlag.AlignCenter,
                    f"{self._rate:.1f}")
 
-        f2 = QFont(T.FONT_UI)
+        f2 = T.ui_font()
         f2.setFamilies([T.FONT_UI] + T.FONT_FB)
-        f2.setPixelSize(9)
+        f2.setPixelSize(12)
         p.setFont(f2)
         p.setPen(QColor(T.C_TEXT3))
         p.drawText(QRectF(0, 38, 72, 14), Qt.AlignmentFlag.AlignCenter,

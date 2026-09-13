@@ -91,7 +91,7 @@ class DailyKChart(QWidget):
             p.drawLine(PL, y, PL + iW, y)
 
         # Y 轴标签（分钟数）
-        f = QFont(T.FONT_UI)
+        f = T.ui_font()
         f.setFamilies([T.FONT_UI] + T.FONT_FB)
         f.setPixelSize(9)
         p.setFont(f)

@@ -4,7 +4,7 @@ import config
 _STRINGS = {
     "zh": {
         # nav
-        "nav_monitor":  "监控",
+        "nav_monitor":  "监测",
         "nav_stats":    "统计",
         "nav_settings": "设置",
         # sidebar
@@ -12,7 +12,8 @@ _STRINGS = {
         "subtitle":         "多眨一眼，少一分干涩",
         "main_menu":        "主菜单",
         "face_locked":      "人脸已锁定",
-        "face_none":        "未检测到",
+        "face_none":        "未识别到人脸",
+        "status_waiting":    "正在连接摄像头",
         "session_usage":    "使用 {t}",
         "sound_toggle":     "提醒音效",
         # alert strip
@@ -119,7 +120,9 @@ _STRINGS = {
         "tray_hide":        "🚫 隐藏预览",
         "tray_quit":        "❌ 退出",
         # widget strings
-        "no_face":          "未检测到人脸",
+        "no_face":          "未识别到人脸",
+        "camera_pending":   "等待摄像头画面",
+        "camera_unavailable": "摄像头画面不可用",
         "health_score":     "健康评分",
         "unit_per_min_zh":  "次/分",
         "trend_now":        "现在",
@@ -142,7 +145,8 @@ _STRINGS = {
         "subtitle":         "Blink more, dry less",
         "main_menu":        "MAIN MENU",
         "face_locked":      "Face locked",
-        "face_none":        "Not detected",
+        "face_none":        "No face detected",
+        "status_waiting":    "Connecting camera",
         "session_usage":    "{t} session",
         "sound_toggle":     "Alert sound",
         # alert strip
@@ -250,6 +254,8 @@ _STRINGS = {
         "tray_quit":        "❌ Quit",
         # widget strings
         "no_face":          "No face detected",
+        "camera_pending":   "Waiting for camera",
+        "camera_unavailable": "Camera preview unavailable",
         "health_score":     "Health score",
         "unit_per_min_zh":  "/min",
         "trend_now":        "now",

@@ -1,11 +1,13 @@
 """Top title bar with screen title, alert chip, and window controls."""
-from PyQt6.QtWidgets import QWidget, QHBoxLayout, QLabel, QFrame, QPushButton
+from PyQt6.QtWidgets import QWidget, QHBoxLayout, QLabel, QFrame, QStackedWidget, QPushButton, QStyleOptionButton, QStyle
 from PyQt6.QtCore import Qt, QRectF, pyqtSignal, QSize
-from PyQt6.QtGui import QColor, QFont, QPainter, QPen
+from PyQt6.QtGui import QColor, QFont, QPainter, QPen, QActionGroup, QFontMetrics, QFontMetrics
 import config
 from config import save_config
 import theme as T
-from i18n import t
+from i18n import t, _STRINGS, _STRINGS
+from widgets.soft_icon import icon
+from widgets.selection_popup import build_menu
 
 
 class _WinBtn(QWidget):
@@ -72,7 +74,14 @@ class _Chip(QWidget):
         super().__init__(parent)
         self._level = -1
         self._text = ""
-        self.setFixedHeight(22)
+        font = T.ui_font()
+        font.setFamilies([T.FONT_UI] + T.FONT_FB)
+        font.setPixelSize(11)
+        font.setWeight(QFont.Weight.Normal)
+        metrics = QFontMetrics(font)
+        labels = [_STRINGS[lang][f"alert_l{level}"] for lang in ("zh", "en") for level in range(3)]
+        self._stable_width = max(metrics.horizontalAdvance(label) for label in labels) + 30
+        self.setFixedSize(self._stable_width, 22)
         self.hide()
 
     def setAlert(self, level: int):
@@ -87,8 +96,7 @@ class _Chip(QWidget):
 
     def sizeHint(self):
         from PyQt6.QtCore import QSize
-        w = self.fontMetrics().horizontalAdvance(self._text) + 28
-        return QSize(w, 22)
+        return QSize(self._stable_width, 22)
 
     def paintEvent(self, _e):
         if self._level < 0:
@@ -106,12 +114,43 @@ class _Chip(QWidget):
         p.setBrush(c)
         p.drawEllipse(QRectF(9, 8.5, 5, 5))
         p.setPen(c)
-        f = QFont(T.FONT_UI); f.setFamilies([T.FONT_UI] + T.FONT_FB)
-        f.setPixelSize(11); f.setWeight(QFont.Weight.DemiBold)
+        f = T.ui_font(); f.setFamilies([T.FONT_UI] + T.FONT_FB)
+        f.setPixelSize(11); f.setWeight(QFont.Weight.Normal)
         p.setFont(f)
         p.drawText(QRectF(20, 0, self.width() - 24, self.height()),
                    int(Qt.AlignmentFlag.AlignVCenter | Qt.AlignmentFlag.AlignLeft),
                    info["label"])
+
+
+class _LanguageButton(QPushButton):
+    """Quiet title-bar control with one antialiased rounded boundary."""
+    def __init__(self, parent=None):
+        super().__init__(parent)
+        self._keyboard_focus = False
+
+    def focusInEvent(self, event):
+        self._keyboard_focus = event.reason() in (
+            Qt.FocusReason.TabFocusReason, Qt.FocusReason.BacktabFocusReason,
+            Qt.FocusReason.ShortcutFocusReason)
+        super().focusInEvent(event)
+        self.update()
+
+    def focusOutEvent(self, event):
+        super().focusOutEvent(event)
+        self.update()
+
+    def paintEvent(self, event):
+        painter = QPainter(self)
+        painter.setRenderHint(QPainter.RenderHint.Antialiasing)
+        focused = self.hasFocus() and self._keyboard_focus
+        fill = T.BRAND_SOFT if self.isDown() else (T.C_SURFACE if self.underMouse() else T.C_CARD)
+        painter.setBrush(QColor(fill))
+        painter.setPen(QPen(QColor(T.CONTROL_FOCUS), 1) if focused else QPen(Qt.PenStyle.NoPen))
+        painter.drawRoundedRect(QRectF(self.rect()).adjusted(.5, .5, -.5, -.5), T.R_SM, T.R_SM)
+        option = QStyleOptionButton()
+        self.initStyleOption(option)
+        option.state &= ~QStyle.StateFlag.State_HasFocus
+        self.style().drawControl(QStyle.ControlElement.CE_PushButtonLabel, option, painter, self)
 
 
 class TitleBar(QFrame):
@@ -122,30 +161,38 @@ class TitleBar(QFrame):
 
     def __init__(self, parent=None):
         super().__init__(parent)
-        self.setFixedHeight(42)
+        self.setFixedHeight(72)
         self.setObjectName("TitleBar")
-        self.setStyleSheet(
-            f"QFrame#TitleBar{{background:{T.C_TITLEBAR};"
-            f"border-bottom:1px solid {T.C_BORDER};}}"
-        )
-        lay = QHBoxLayout(self)
-        lay.setContentsMargins(18, 0, 10, 0)
+        self.setStyleSheet("QFrame#TitleBar{background:transparent;border:none;}")
+        header_layout = QHBoxLayout(self)
+        header_layout.setContentsMargins(24, 18, 10, 18)
+        header_layout.setSpacing(20)
+        self._page_headers = QStackedWidget()
+        self._page_headers.setFixedHeight(36)
+        self._page_headers.setStyleSheet("QStackedWidget{background:transparent;border:none;}")
+        header_layout.addWidget(self._page_headers, 1)
+        self._controls = QWidget()
+        self._controls.setFixedHeight(36)
+        lay = QHBoxLayout(self._controls)
+        lay.setContentsMargins(0, 0, 0, 0)
         lay.setSpacing(10)
-
-        self._title = QLabel(t("nav_monitor"))
-        f = QFont(T.FONT_UI); f.setFamilies([T.FONT_UI] + T.FONT_FB)
-        f.setPixelSize(13); f.setWeight(QFont.Weight.DemiBold)
-        self._title.setFont(f)
-        self._title.setStyleSheet(f"color:{T.C_TEXT}; background:transparent; border:none;")
-        lay.addWidget(self._title)
-        lay.addStretch(1)
+        header_layout.addWidget(self._controls)
 
         self._chip = _Chip()
         lay.addWidget(self._chip)
 
         # 语言切换按钮
-        self._lang_btn = QPushButton()
-        self._lang_btn.setFixedSize(32, 24)
+        self._lang_btn = _LanguageButton()
+        self._lang_btn.setFixedHeight(28)
+        language_font = T.ui_font()
+        language_font.setFamilies([T.FONT_UI] + T.FONT_FB)
+        language_font.setPixelSize(11)
+        language_font.setWeight(QFont.Weight.Medium)
+        self._lang_btn.setFont(language_font)
+        self._lang_btn.setIcon(icon("globe", size=16))
+        self._lang_btn.setIconSize(QSize(16, 16))
+        self._language_menu = None
+        self._language_actions = {}
         self._lang_btn.setCursor(Qt.CursorShape.PointingHandCursor)
         self._lang_btn.clicked.connect(self._toggle_lang)
         self._refresh_lang_btn()
@@ -158,24 +205,69 @@ class TitleBar(QFrame):
             lay.addWidget(btn)
 
     def _toggle_lang(self):
-        config.LANGUAGE = "en" if getattr(config, "LANGUAGE", "en") == "zh" else "zh"
+        """Compatibility entry point: open choices without changing language."""
+        self._open_language_menu()
+
+    def _open_language_menu(self):
+        if self._language_menu is None:
+            menu_font = T.ui_font()
+            menu_font.setFamilies([T.FONT_UI] + T.FONT_FB)
+            menu_font.setPixelSize(13)
+            menu_font.setWeight(QFont.Weight.Normal)
+            self._language_menu = build_menu(self, font=menu_font)
+            self._language_menu.setMinimumWidth(170)
+            self._language_menu.aboutToShow.connect(lambda: self._lang_btn.setDown(True))
+            self._language_menu.aboutToHide.connect(lambda: self._lang_btn.setDown(False))
+            self._language_menu.setAccessibleName("语言 / Language")
+            self._language_group = QActionGroup(self._language_menu)
+            self._language_group.setExclusive(True)
+            for language, label in (("zh", "简体中文"), ("en", "English")):
+                action = self._language_menu.addAction(label)
+                action.setCheckable(True)
+                self._language_group.addAction(action)
+                action.triggered.connect(lambda _checked=False, value=language: self._set_language(value))
+                self._language_actions[language] = action
+        self._refresh_lang_btn()
+        if self._language_menu.isVisible():
+            self._language_menu.hide()
+            return
+        self._language_menu.popup_below(self._lang_btn)
+
+    def _set_language(self, language):
+        if language not in ("zh", "en"):
+            return
+        current = "zh" if str(getattr(config, "LANGUAGE", "en")).lower().startswith("zh") else "en"
+        if language == current:
+            self._refresh_lang_btn()
+            return
+        config.LANGUAGE = language
         save_config()
         self._refresh_lang_btn()
         self.languageChanged.emit()
 
     def _refresh_lang_btn(self):
-        lang = getattr(config, "LANGUAGE", "en")
-        self._lang_btn.setText("EN" if lang == "en" else "CN")
-        self._lang_btn.setToolTip(t("tooltip_lang_switch_zh") if lang == "en" else t("tooltip_lang_switch_en"))
+        lang = "zh" if str(getattr(config, "LANGUAGE", "en")).lower().startswith("zh") else "en"
+        label = "Language"
+        self._lang_btn.setText(label)
+        self._lang_btn.setToolTip("界面语言：简体中文" if lang == "zh" else "Interface language: English")
+        self._lang_btn.setAccessibleName(self._lang_btn.toolTip())
         self._lang_btn.setStyleSheet(
-            f"QPushButton{{background:transparent; border:1px solid {T.C_BORDER};"
-            f"border-radius:5px; font-size:11px; font-weight:600;"
-            f"color:{T.C_TEXT2}; padding-bottom:2px;}}"
-            f"QPushButton:hover{{background:{T.C_BORDER};}}"
-        )
+            f"QPushButton{{background:transparent;border:none;outline:none;"
+            f"border-radius:8px;font-size:11px;font-weight:500;"
+            f"color:{T.C_TEXT2};padding:2px 6px;text-align:center;}}"
 
-    def setTitle(self, t: str):
-        self._title.setText(t)
+        )
+        self._lang_btn.setFixedWidth(92)
+        for language, action in self._language_actions.items():
+            action.setChecked(language == lang)
+        if self._chip._level >= 0:
+            self._chip.setAlert(self._chip._level)
+            self._chip.updateGeometry()
+
+    def setPageHeader(self, header):
+        if self._page_headers.indexOf(header) < 0:
+            self._page_headers.addWidget(header)
+        self._page_headers.setCurrentWidget(header)
 
     def setRate(self, r: float):
         pass

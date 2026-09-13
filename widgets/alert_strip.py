@@ -1,9 +1,27 @@
-"""Sliding alert strip displayed below the title bar."""
+"""An inset reminder card, aligned with the page surfaces above it."""
 from PyQt6.QtWidgets import QWidget, QHBoxLayout, QLabel, QPushButton
-from PyQt6.QtCore import Qt, pyqtSignal, QTimer
-from PyQt6.QtGui import QColor, QFont
+from PyQt6.QtCore import Qt, pyqtSignal, QTimer, QRectF
+from PyQt6.QtGui import QColor, QPainter
 import theme as T
 from i18n import t
+import config
+
+
+def _dismiss_text():
+    return '收起提示' if config.LANGUAGE == 'zh' else 'Dismiss'
+
+
+class _ReminderSurface(QWidget):
+    def __init__(self, parent=None):
+        super().__init__(parent)
+        self.fill = QColor(T.C_CARD)
+
+    def paintEvent(self, event):
+        painter = QPainter(self)
+        painter.setRenderHint(QPainter.RenderHint.Antialiasing)
+        painter.setPen(Qt.PenStyle.NoPen)
+        painter.setBrush(self.fill)
+        painter.drawRoundedRect(QRectF(self.rect()), T.R_CARD, T.R_CARD)
 
 
 class AlertStrip(QWidget):
@@ -13,76 +31,74 @@ class AlertStrip(QWidget):
         super().__init__(parent)
         self._level = -1
         self._secs = 0.0
-        self.setFixedHeight(56)
-
-        lay = QHBoxLayout(self)
-        lay.setContentsMargins(24, 0, 24, 0)
-        lay.setSpacing(12)
-
-        self._dot = QLabel("●")
-        self._dot.setStyleSheet("color:rgba(255,255,255,230); font-size:12px; background:transparent; border:none;")
-        self._label = QLabel("")
-        self._label.setStyleSheet("color:#fff; font-weight:600; font-size:14px; background:transparent; border:none;")
-        self._desc = QLabel("")
-        self._desc.setStyleSheet("color:rgba(255,255,255,180); font-size:13px; background:transparent; border:none;")
-        self._secs_lbl = QLabel("")
-        f = QFont(T.FONT_MONO)
-        f.setPixelSize(14)
-        self._secs_lbl.setFont(f)
-        self._secs_lbl.setStyleSheet("color:rgba(255,255,255,215); background:transparent; border:none;")
-        self._btn = QPushButton(t("blinked_btn"))
+        self.setFixedHeight(60)
+        outer = QHBoxLayout(self)
+        outer.setContentsMargins(24, 0, 24, 12)
+        self._surface = _ReminderSurface(self)
+        outer.addWidget(self._surface)
+        row = QHBoxLayout(self._surface)
+        row.setContentsMargins(16, 0, 12, 0)
+        row.setSpacing(12)
+        self._dot = QLabel('●')
+        self._dot.setFixedSize(12, 24)
+        self._label = QLabel()
+        self._label.setFont(T.ui_font(13, 600))
+        self._label.setFixedSize(100, 24)
+        self._desc = QLabel()
+        self._desc.setFont(T.ui_font(13))
+        self._desc.setFixedHeight(24)
+        self._secs_lbl = QLabel()
+        self._secs_lbl.setFont(T.ui_font(14, 500))
+        self._secs_lbl.setFixedSize(64, 24)
+        self._secs_lbl.setAlignment(Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter)
+        self._btn = QPushButton(_dismiss_text())
+        self._btn.setFont(T.ui_font(13, 500))
+        self._btn.setFixedSize(84, 32)
         self._btn.setCursor(Qt.CursorShape.PointingHandCursor)
-        self._btn.setStyleSheet(
-            "QPushButton{background:rgba(255,255,255,52);border:none;"
-            "border-radius:7px;color:#fff;padding:6px 18px;font-size:13px;}"
-            "QPushButton:hover{background:rgba(255,255,255,80);}"
-        )
         self._btn.clicked.connect(self.dismissed)
-
-        lay.addWidget(self._dot)
-        lay.addWidget(self._label)
-        lay.addWidget(self._desc, 1)
-        lay.addWidget(self._secs_lbl)
-        lay.addWidget(self._btn)
-
-        self.hide()
-
-        # urgent pulse
+        row.addWidget(self._dot)
+        row.addWidget(self._label)
+        row.addWidget(self._desc, 1)
+        row.addWidget(self._secs_lbl)
+        row.addWidget(self._btn)
         self._pulse = QTimer(self)
         self._pulse.timeout.connect(self._toggle_dot)
         self._dot_on = True
+        self.hide()
 
     def _toggle_dot(self):
         self._dot_on = not self._dot_on
-        a = 230 if self._dot_on else 120
-        self._dot.setStyleSheet(f"color:rgba(255,255,255,{a}); font-size:10px; background:transparent; border:none;")
+        ink = QColor(self._ink)
+        ink.setAlpha(230 if self._dot_on else 120)
+        self._dot.setStyleSheet(f'color:{ink.name(QColor.NameFormat.HexArgb)};background:transparent;border:none;font-size:11px;')
 
-    def setState(self, level: int, secs: float):
-        self._level = level
-        self._secs = secs
+    def setState(self, level, secs):
+        self._level, self._secs = level, secs
         if level < 0:
             self.hide()
             self._pulse.stop()
             return
+        level = min(2, int(level))
         info = T.alert_levels()[level]
-        self.setStyleSheet(f"AlertStrip{{background:{info['c']};}}")
-        self._label.setText(info["label"])
-        self._desc.setText(t("alert_desc", sec=info["sec"]))
-        self._btn.setText(t("blinked_btn"))
-        self._secs_lbl.setText(f"{secs:.1f}s")
+        self._ink = ['#8C6417', '#9C4C1E', '#A63E30', '#A12C2C'][level]
+        self._surface.fill = QColor(['#F8F0DC', '#F9ECDC', '#F8E6DF', '#F6E1DF'][level])
+        self._surface.update()
+        for label in (self._label, self._secs_lbl):
+            label.setStyleSheet(f'color:{self._ink};background:transparent;border:none;')
+        self._desc.setStyleSheet(f'color:{T.C_TEXT2};background:transparent;border:none;')
+        self._btn.setStyleSheet(
+            f'QPushButton{{background:{T.C_CARD};color:{self._ink};border:1px solid transparent;border-radius:8px;padding:4px 8px;}}'
+            f'QPushButton:hover{{background:{T.C_BG};}}'
+            f'QPushButton:focus{{border-color:{T.CONTROL_FOCUS};}}')
+        self._label.setText(info['label'])
+        threshold = int(config.NO_BLINK_ALERT_SEC + level * config.ALERT_INTERVAL_SEC)
+        self._desc.setText(t('alert_desc', sec=threshold).lstrip(' ·'))
+        self._btn.setText(_dismiss_text())
+        self._secs_lbl.setText(f'{secs:.1f}s')
         self.show()
         if level >= 3:
             if not self._pulse.isActive():
                 self._pulse.start(500)
         else:
             self._pulse.stop()
-            self._dot.setStyleSheet("color:rgba(255,255,255,230); font-size:10px; background:transparent; border:none;")
-
-    def paintEvent(self, e):
-        # 让 setStyleSheet 的 AlertStrip{background} 生效
-        from PyQt6.QtWidgets import QStyleOption, QStyle
-        from PyQt6.QtGui import QPainter
-        opt = QStyleOption()
-        opt.initFrom(self)
-        p = QPainter(self)
-        self.style().drawPrimitive(QStyle.PrimitiveElement.PE_Widget, opt, p, self)
+            self._dot.setStyleSheet(f'color:{self._ink};font-size:11px;background:transparent;border:none;')
