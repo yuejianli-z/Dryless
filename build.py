@@ -44,7 +44,7 @@ def main():
     args = [sys.executable, "-m", "PyInstaller", "--noconfirm", "--clean",
             "--onefile", "--windowed", "--name", "Dryless",
             "--distpath", str(out), "--workpath", str(work / "pyinstaller"),
-            "--specpath", str(work), "--icon", str(ROOT / "assets/icons/desktop-eye-transparent.ico"),
+            "--specpath", str(work), "--icon", str(ROOT / "assets/icons/desktop-eye-sage.ico"),
             "--collect-all", "mediapipe", "--copy-metadata", "mediapipe",
             "--hidden-import", "cv2", "--hidden-import", "winsound",
             "--hidden-import", "PyQt6.QtWidgets"]
