@@ -1,6 +1,9 @@
 # Mac mini 接手说明
 
 先读 START_HERE.md、FEATURE_PARITY.md、release/windows.md。
+用户最新要求：暂不合并 main，先对接两端设计与改动范围。
+如果本机已经有设计/代码，先保存并上传现有独立分支，提供设计 skill 名称和当前页面；
+不要执行下方新建流程来覆盖现有目录。以下命令仅用于没有本地项目时。
 Windows 最新基线在 codex/dryless-design-v2，不是旧 main。
 
 ```sh
@@ -36,3 +39,10 @@ git switch -c codex/macos-v0.2.0 origin/codex/dryless-design-v2
 签名/公证需要用户 Apple Developer 身份，在需要时再让用户提供授权，不提交密钥。
 无身份时可以提供明确标注未签名的本机测试包，但不能标记公开发布验收通过。
 最终发布同一提交、同一版本号、分别命名 Windows/macOS/架构的包及 SHA256。
+
+## 原生设计范围
+Windows 当前 UI 是功能与信息层级参考，不是 Mac 像素级复制目标。
+可以使用适合 macOS 的设计 skill，调整侧栏、工具栏、控件、排版和原生交互。
+允许选择原生 Qt 或另行设计原生 UI 层，但先说明共享核心复用方案、数据接口、
+构建依赖和回归范围；不要复制并分叉检测、统计或提醒规则。
+先在 Mac 独立分支给出可运行页面与改动清单，双方比较后再决定主分支整合。

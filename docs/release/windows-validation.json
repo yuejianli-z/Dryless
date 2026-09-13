@@ -1,0 +1,45 @@
+{
+  "version": "0.2.0-rc.1",
+  "binary_source_commit": "0cb6f305f593f794fd44bb3cf6753266a910d1cf",
+  "exe_sha256": "d816e3bd7c0cdf40c86ad39926f51f2f8a9ff6ad6c1c3a4a123a17d35a23c996",
+  "exe_bytes": 131046839,
+  "tested_at_utc": "2026-09-13T10:56:59.243913+00:00",
+  "platform": "Windows-11-10.0.26200-SP0",
+  "python": "3.14.3 (tags/v3.14.3:323c59a, Feb  3 2026, 16:04:56) [MSC v.1944 64 bit (AMD64)]",
+  "shared_unit_tests": {
+    "passed": 22,
+    "failed": 0
+  },
+  "reminder_checks": {
+    "passed": 66,
+    "failed": 0,
+    "timing": "simulated, not live 25-minute session"
+  },
+  "ui_checks": {
+    "passed": 184,
+    "failed": 0,
+    "camera_frames": "synthetic"
+  },
+  "standalone": {
+    "passed": true,
+    "checks": 60,
+    "outside_checkout": true,
+    "python_removed_from_path": true
+  },
+  "camera_smoke": {
+    "passed": true,
+    "frames": 42,
+    "samples": 63,
+    "face_seen": false
+  },
+  "manual_pending": [
+    "face-present blink count/accuracy on this packaged build",
+    "live 25-minute session",
+    "sleep/resume and camera unplug/replug",
+    "second physical Windows PC acceptance",
+    "macOS build and hardware acceptance",
+    "final combined-distribution license/source audit"
+  ],
+  "ci_shared": "https://github.com/yuejianli-z/Dryless/actions/runs/34753064702",
+  "ci_windows": "https://github.com/yuejianli-z/Dryless/actions/runs/34753063602"
+}

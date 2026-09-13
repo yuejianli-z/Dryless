@@ -1,0 +1,7 @@
+{
+  "run_url": "https://github.com/yuejianli-z/Dryless/actions/runs/34753289552",
+  "commit": "3af754bbb9031e31631b9d91b2721eef7c6e627b",
+  "conclusion": "success",
+  "scope": "Clean GitHub Windows runner: locked dependency installation, 22 unit tests, 66 reminder checks, 184 UI checks, build, standalone EXE smoke with system-only PATH.",
+  "limits": "No physical camera/speaker on CI. This is not Mac app acceptance or a 25-minute live session."
+}
