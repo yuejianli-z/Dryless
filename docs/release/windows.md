@@ -1,5 +1,9 @@
 # Windows acceptance — candidate built and locally verified
 
+最新候选：0.2.0-rc.8。验证记录见 [windows-rc8.md](windows-rc8.md)，源提交和包哈希见 [windows-rc8-validation.json](windows-rc8-validation.json)。
+本轮清除悬停窗、压缩顶部开关、统一有效识别频率口径、调整Ding命名和选择即试听；检测算法未变。Mac真机尚未完成共同验收。
+
+
 Date: 2026-09-13. Version: **0.2.0-rc.1**. Native platform: Windows-11-10.0.26200-SP0.
 Binary source commit: `0cb6f305f593f794fd44bb3cf6753266a910d1cf`.
 Later commits on the handoff branch only update CI, tests or documentation;

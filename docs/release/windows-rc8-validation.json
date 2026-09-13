@@ -1,0 +1,17 @@
+{
+  "version": "0.2.0-rc.8",
+  "source_commit": "a166573f7fdffa9f4faa13fdb4c5d3b79d7261cd",
+  "sha256": "f53f596de456c151779f16e11651ef8e58f0e42d3b875583729395c8a9173987",
+  "hover_checks": 87,
+  "live_metric_checks": 24,
+  "ui_checks": 186,
+  "control_consistency_checks": 227,
+  "synthetic_camera_checks": 38,
+  "sound_selection_checks": 50,
+  "reminder_checks": 66,
+  "pure_logic_tests": 32,
+  "packaged_checks": 64,
+  "physical_camera_retested": false,
+  "mac_runtime_tested": false,
+  "detector_algorithm_changed": false
+}
