@@ -406,10 +406,10 @@ class DrylessApp(QMainWindow):
         cv.addWidget(self.stack, 1)
         lay.addWidget(content, 1)
 
-        # An inset reminder card has its own layout space and clear outer corners.
-        self.alert_strip = AlertStrip(content)
+        # Alerts never enter the content layout: the sidebar reserves a fixed slot.
+        self.alert_strip = AlertStrip(self.sidebar.alert_host)
         self.alert_strip.dismissed.connect(self._dismiss_alert)
-        cv.addWidget(self.alert_strip)
+        self.sidebar.alert_host.layout().addWidget(self.alert_strip)
 
 
         # State
@@ -632,6 +632,7 @@ class DrylessApp(QMainWindow):
         self.monitor.retranslate()
         self.stats.retranslate()
         self.titlebar._refresh_lang_btn()
+        self.alert_strip.retranslate()
         self.titlebar.setCameraState(self._camera_state)
         # Update current titlebar title
         idx = self.stack.currentIndex()

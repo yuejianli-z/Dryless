@@ -166,6 +166,15 @@ class Sidebar(QWidget):
         nav_lay.addStretch(1)
         root.addWidget(nav, 1)
 
+        # Permanent blank slot keeps navigation and footer fixed when alerts change.
+        self.alert_host = QWidget(self)
+        self.alert_host.setFixedHeight(156)
+        self.alert_host.setStyleSheet("background:transparent;border:none;")
+        alert_layout = QVBoxLayout(self.alert_host)
+        alert_layout.setContentsMargins(12, 0, 12, 12)
+        alert_layout.setSpacing(0)
+        root.addWidget(self.alert_host)
+
         # Bottom status
         bot = QWidget(self)
         bot.setObjectName("SidebarBot")
