@@ -1,0 +1,52 @@
+name: Windows candidate build
+on:
+  push:
+    branches: [codex/dryless-design-v2]
+    paths: [.github/workflows/windows-candidate.yml]
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  package:
+    runs-on: windows-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.14'
+      - name: Install recorded dependencies in a clean runner
+        run: python -m pip install -r requirements-windows.lock
+      - name: Shared contracts
+        run: python -m unittest discover -s tests -v
+      - name: Sound and reminder arbitration (simulated hardware)
+        run: python tools/qa_reminders_windows.py
+      - name: Bilingual UI regression (synthetic camera)
+        run: python tools/qa_ui.py
+      - name: Build standalone candidate
+        run: python build.py
+      - name: Smoke test outside checkout, with no Python in PATH
+        shell: pwsh
+        run: |
+          $version = python -c "from version import VERSION; print(VERSION)"
+          $runDir = Join-Path $env:RUNNER_TEMP 'dryless-standalone'
+          New-Item -ItemType Directory -Path $runDir -Force | Out-Null
+          Copy-Item "dist/$version/Dryless.exe" "$runDir/Dryless.exe"
+          $env:PATH = "$env:SystemRoot/System32;$env:SystemRoot"
+          $proc = Start-Process "$runDir/Dryless.exe" -ArgumentList '--self-test report.json' -WorkingDirectory $runDir -PassThru
+          if (-not $proc.WaitForExit(90000)) { throw 'Standalone smoke check timed out' }
+          $proc.Refresh()
+          $report = Get-Content "$runDir/report.json" -Raw | ConvertFrom-Json
+          if ($proc.ExitCode -ne 0 -or -not $report.passed) { throw 'Standalone smoke check failed' }
+          Copy-Item "$runDir/report.json" "dist/$version/ci-self-test.json"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: dryless-windows-candidate
+          path: dist/
+          retention-days: 14
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: dryless-windows-qa
+          path: qa-output/
+          retention-days: 14
