@@ -1,0 +1,11 @@
+{
+  "version": "0.2.0-rc.7",
+  "source_commit": "98750119336a5c7d3a2650c11f9b795d9d16ac42",
+  "sha256": "dc2019be2c09304f2e9305c2640822c006945f77e7ca024a640fe7516b611382",
+  "fixed_layout_checks": 254,
+  "ui_checks": 186,
+  "reminder_simulated_checks": 66,
+  "packaged_checks": 63,
+  "physical_camera_retested": false,
+  "mac_runtime_tested": false
+}
