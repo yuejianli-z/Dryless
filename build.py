@@ -4,6 +4,7 @@ import os
 from pathlib import Path
 import platform
 import subprocess
+import shutil
 import sys
 from importlib import metadata
 from version import VERSION
@@ -13,6 +14,15 @@ ROOT = Path(__file__).resolve().parent
 def main():
     if sys.platform != "win32":
         raise SystemExit("This builder targets Windows. See docs/MAC_HANDOFF.md for macOS.")
+    # Resolve Git before PATH isolation. Source ZIPs carry SOURCE_COMMIT instead.
+    git = shutil.which("git")
+    if git and (ROOT / ".git").exists():
+        revision = subprocess.run([git, "-c", "safe.directory=" + str(ROOT),
+            "rev-parse", "HEAD"], cwd=ROOT, capture_output=True, text=True, check=True).stdout.strip()
+    elif (ROOT / "SOURCE_COMMIT").is_file():
+        revision = (ROOT / "SOURCE_COMMIT").read_text().strip()
+    else:
+        revision = os.environ.get("GITHUB_SHA", "unversioned-source")
     # Prevent DLLs from unrelated installed software from entering the package.
     windows = Path(os.environ.get("SystemRoot", r"C:\Windows"))
     os.environ["PATH"] = os.pathsep.join(map(str, (
@@ -34,7 +44,7 @@ def main():
     args = [sys.executable, "-m", "PyInstaller", "--noconfirm", "--clean",
             "--onefile", "--windowed", "--name", "Dryless",
             "--distpath", str(out), "--workpath", str(work / "pyinstaller"),
-            "--specpath", str(work), "--icon", str(ROOT / "icon.ico"),
+            "--specpath", str(work), "--icon", str(ROOT / "assets/icons/desktop-eye-transparent.ico"),
             "--collect-all", "mediapipe", "--copy-metadata", "mediapipe",
             "--hidden-import", "cv2", "--hidden-import", "winsound",
             "--hidden-import", "PyQt6.QtWidgets"]
@@ -47,8 +57,6 @@ def main():
         args += ["--add-data", str(ROOT / source) + os.pathsep + target]
     args.append(str(ROOT / "main.py"))
     subprocess.run(args, cwd=ROOT, check=True)
-    revision = subprocess.run(["git", "-c", "safe.directory=" + str(ROOT),
-        "rev-parse", "HEAD"], cwd=ROOT, capture_output=True, text=True, check=True).stdout.strip()
     info = {"version": VERSION, "platform": platform.platform(), "python": sys.version,
             "revision": revision, "packages": {d.metadata["Name"]: d.version for d in metadata.distributions()}}
     (out / "build-info.json").write_text(json.dumps(info, indent=2), encoding="utf-8")
