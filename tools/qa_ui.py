@@ -40,7 +40,7 @@ try:
  with patch.object(ui.cv2,'VideoCapture',side_effect=AssertionError('QA no camera')) as cam,patch.object(ui.DetectorWorker,'start',side_effect=AssertionError('QA no worker')) as worker:
   window=ui.DrylessApp(start_worker=False);window.setAttribute(Qt.WidgetAttribute.WA_ShowWithoutActivating,True);window.show();screen=window.monitor
   preview=QImage(640,480,QImage.Format.Format_RGB32);preview.fill(QColor('#373737'));p=QPainter(preview);p.setPen(QColor('#FFFFFF'));p.setFont(QFont('Segoe UI',18));p.drawText(preview.rect(),Qt.AlignmentFlag.AlignCenter,'CAMERA TEST FRAME\n640 × 480');p.end();window._on_frame(preview)
-  base=dict(face=True,eye_open=True,eye_ratio=.85,no_blink=2.4,rate=7.3,total=191,alert_level=-1,session_sec=676,minute_history=[12,18,16,20,19,14,18,17,22,18,16],minute_valid_seconds=[60]*11)
+  base=dict(face=True,eye_open=True,eye_ratio=.85,no_blink=2.4,rate=17.3,rolling_rate=17.3,rolling_valid_seconds=60,microbreak_presence=676,total=191,alert_level=-1,session_sec=676,minute_history=[12,18,16,20,19,14,18,17,22,18,16],minute_valid_seconds=[60]*11)
   check('preview-preference-restored',not screen._preview_visible)
   check('camera-default-off',window._camera_state=='off' and not window._accept_camera)
   window._set_camera_state('running');window.setPreviewVisible(True)
@@ -64,8 +64,8 @@ try:
     window._on_stats(base)
   window._on_nav('monitor');window.resize(1100,700)
   check('no-session-dialog',not hasattr(screen,'_details_body') and not hasattr(screen,'_details_toggle'))
-  window._on_stats(base);check('inline-run-time',screen._run_time_value.text()=='00:11:16')
-  window.monitor.on_alert_triggered(0);check('inline-alert-count',int(screen._run_alerts_value.text())==sum(screen._alert_counts))
+  window._on_stats(base);check('rolling-frequency',screen.metrics.rate==17.3);check('presence-progress',abs(screen.metrics.break_progress-676/1200)<1e-9)
+  window.monitor.on_alert_triggered(0);check('alerts-still-recorded',sum(screen._alert_counts)==1)
   screen._preview_button.click();shot('en-hidden-camera',1100,700);check('hide-does-not-stop',not screen._preview_visible and screen.camera._frame is not None);screen._preview_button.click()
   screen._pause_button.click();check('pause-propagates',window.worker._paused);shot('en-paused',1100,700);screen._pause_button.click()
   window._on_stats(dict(base,minute_history=[0],minute_valid_seconds=[60]));check('real-zero',screen.trend._data==[0])

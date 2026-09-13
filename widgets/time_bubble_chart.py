@@ -9,7 +9,7 @@ import html
 import math
 from datetime import timedelta
 
-from PyQt6.QtCore import Qt, QPointF, QRectF, QSize, QSizeF, pyqtSignal
+from PyQt6.QtCore import QEvent, Qt, QPointF, QRectF, QSize, QSizeF, pyqtSignal
 from PyQt6.QtGui import QColor, QFont, QLinearGradient, QPainter, QPainterPath, QPen
 from PyQt6.QtWidgets import QWidget, QVBoxLayout, QScrollArea, QFrame, QSizePolicy, QToolTip
 
@@ -20,7 +20,7 @@ from widgets.chart_label_layout import place_mean_label
 
 COLOR_LOW = "#D95C50"
 COLOR_MID = "#E4B840"
-COLOR_HIGH = "#4A9E80"
+COLOR_HIGH = "#8BA58D"
 
 
 def _font(size=11, bold=False):
@@ -419,6 +419,17 @@ class _BubbleLegend(QWidget):
         super().__init__(chart)
         self.chart = chart
         self.setFixedHeight(44)
+
+    def event(self, event):
+        if event.type() == QEvent.Type.ToolTip:
+            QToolTip.hideText()
+            event.accept()
+            return True
+        return super().event(event)
+
+    def enterEvent(self, event):
+        QToolTip.hideText()
+        super().enterEvent(event)
 
     def paintEvent(self, event):
         c = self.chart

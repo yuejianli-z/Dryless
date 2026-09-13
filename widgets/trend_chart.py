@@ -2,7 +2,7 @@
 import math
 
 from PyQt6.QtWidgets import QWidget, QToolTip
-from PyQt6.QtCore import Qt, QRectF, QPointF
+from PyQt6.QtCore import QEvent, Qt, QRectF, QPointF
 from PyQt6.QtGui import QPainter, QColor, QPen, QFont, QPainterPath, QLinearGradient
 
 import theme as T
@@ -17,7 +17,7 @@ class TrendChart(QWidget):
         self._window = None
         self._selected = -1
         self.setMinimumHeight(72)
-        self.setMouseTracking(True)
+        self.setMouseTracking(False)
         self.setFocusPolicy(Qt.FocusPolicy.StrongFocus)
         self.setAccessibleName(self._tr('逐分钟眨眼频率', 'Minute-by-minute blink frequency'))
         self.setAccessibleDescription(self._tr('左右方向键查看各分钟数值。', 'Use left and right arrows to inspect minute values.'))
@@ -77,22 +77,27 @@ class TrendChart(QWidget):
         _, _, points = self._geometry()
         if 0 <= index < len(points) and points[index] is not None:
             label = self._label(index)
-            QToolTip.showText(self.mapToGlobal(points[index].toPoint()), label, self)
+            # Exact values stay inline in the footer, never in a hover window.
+            QToolTip.hideText()
             self.setAccessibleDescription(label)
         else:
             QToolTip.hideText()
         self.update()
 
-    def mouseMoveEvent(self, event):
+    def event(self, event):
+        if event.type() == QEvent.Type.ToolTip:
+            QToolTip.hideText()
+            event.accept()
+            return True
+        return super().event(event)
+
+    def mousePressEvent(self, event):
         plot, _, points = self._geometry()
-        selected = -1
-        if plot.contains(event.position()):
+        if event.button() == Qt.MouseButton.LeftButton and plot.contains(event.position()):
             step = plot.width()/self.windowMinutes()
             index = int((event.position().x()-plot.left())/step)-(self.windowMinutes()-len(points))
-            if 0 <= index < len(points) and points[index] is not None:
-                selected = index
-        if selected != self._selected:
-            self._show_value(selected)
+            self._show_value(index if 0 <= index < len(points) and points[index] is not None else -1)
+        super().mousePressEvent(event)
 
     def leaveEvent(self, event):
         self._show_value(-1)
@@ -156,8 +161,12 @@ class TrendChart(QWidget):
         available=any(value is not None for value in data)
         p.drawText(QRectF(plot.left(),footer_y,180,18),Qt.AlignmentFlag.AlignLeft,
                    self._tr(f'前 {window-1} 分钟',f'{window-1} min earlier') if available else self._tr('每格 1 分钟','1 minute per tile'))
-        p.drawText(QRectF(plot.right()-220,footer_y,220,18),Qt.AlignmentFlag.AlignRight,
-                   self._tr('最新完整分钟','Latest completed minute') if available else self._tr('等待第一分钟的有效记录','Waiting for the first valid minute'))
+        selected = 0 <= self._selected < len(data) and data[self._selected] is not None
+        ago = len(data)-1-self._selected
+        when = self._tr('最新分钟', 'Latest minute') if ago == 0 else self._tr(f'前 {ago} 分钟', f'{ago} min ago')
+        detail = (when + f' · {data[self._selected]:.1f} /min') if selected else (
+            self._tr('最新完整分钟','Latest completed minute') if available else self._tr('等待第一分钟的有效记录','Waiting for the first valid minute'))
+        p.drawText(QRectF(plot.right()-240,footer_y,240,18),Qt.AlignmentFlag.AlignRight,detail)
         if available:
             # Compact key avoids an axis while explaining both colour and gaps.
             key_width=300

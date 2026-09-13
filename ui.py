@@ -34,6 +34,7 @@ import config
 from blink_detector import BlinkDetector
 from alert import AlertManager, AUDIO
 from microbreak import MicrobreakController
+from live_metrics import BlinkWindows
 import history_store
 from i18n import t
 
@@ -119,12 +120,8 @@ class DetectorWorker(QThread):
 
         self._minute_history = deque(maxlen=60)
         self._minute_valid_history = deque(maxlen=60)
-        self._minute_valid_seconds = 0.0
-        self._previous_sample_time = None
-        self._previous_sample_valid = False
         self._session_start = time.time()
-        self._last_minute_bucket = -1
-        self._minute_blinks = 0
+        self._reminder_elapsed = 0.0
         self._last_alert_round_seen = -1
         self._microbreak = MicrobreakController()
         self._blink_resume_at = None
@@ -156,6 +153,7 @@ class DetectorWorker(QThread):
         effective = no_blink
         if self._blink_resume_at is not None:
             effective = min(effective, max(0, now - self._blink_resume_at))
+        self._reminder_elapsed = effective
         level = -1
         if face and not self._paused and not micro['active']:
             if effective >= config.NO_BLINK_ALERT_SEC:
@@ -221,6 +219,7 @@ class DetectorWorker(QThread):
 
             self._running = not self._stop_requested.is_set() and not self.isInterruptionRequested()
             self._session_start = time.time()
+            windows = BlinkWindows(time.monotonic())
             frame_count = 0
             read_failures = 0
 
@@ -245,41 +244,17 @@ class DetectorWorker(QThread):
 
                     sample_time = time.monotonic()
                     sample_valid = self._detector.face_detected and self._detector._ratio is not None
-                    if self._previous_sample_time is not None and self._previous_sample_valid and sample_valid:
-                        self._minute_valid_seconds += min(1.0, max(0.0, sample_time - self._previous_sample_time))
-                    self._previous_sample_time = sample_time
-                    self._previous_sample_valid = sample_valid
-
-                    if blinked:
-                        self._minute_blinks += 1
+                    live = windows.sample(sample_time, sample_valid, blinked)
                     level, micro = self._update_reminders(
                         self._detector.face_detected, blinked, no_blink_sec, sample_time)
-
-                    # 分钟聚合
-                    cur_min = int((time.time() - self._session_start) / 60)
-                    if cur_min != self._last_minute_bucket:
-                        if self._last_minute_bucket >= 0:
-                            from datetime import datetime
-                            self._minute_history.append(float(self._minute_blinks))
-                            self._minute_valid_history.append(min(60.0, self._minute_valid_seconds))
-                            history_store.append_minute(
-                                self._minute_blinks,
-                                self._last_minute_bucket,
-                                datetime.now().strftime("%H:%M"),
-                            )
-                            self.minuteCommitted.emit()
-                        self._minute_blinks = 0
-                        self._minute_valid_seconds = 0.0
-                        self._last_minute_bucket = cur_min
-
-                    # rate 估算，clamp 到生理上限 30次/分钟
-                    elapsed_min = max(1 / 60.0, (time.time() - self._session_start) / 60.0)
-                    rate = self._detector.blink_count / elapsed_min
-                    if cur_min >= 0:
-                        sec_in = max(1.0, (time.time() - self._session_start) - cur_min * 60.0)
-                        near = self._minute_blinks / sec_in * 60.0
-                        rate = (rate + near) / 2.0
-                    rate = min(rate, 30.0)
+                    for minute in live['completed']:
+                        from datetime import datetime, timedelta
+                        self._minute_history.append(float(minute.blinks))
+                        self._minute_valid_history.append(minute.valid_seconds)
+                        # Keep the legacy saved-minute schema; live exposure is separate.
+                        stamp = datetime.fromtimestamp(self._session_start) + timedelta(minutes=minute.index+1)
+                        history_store.append_minute(minute.blinks, minute.index, stamp.strftime("%H:%M"))
+                        self.minuteCommitted.emit()
 
                     self.stats.emit({
                         "paused": self._paused,
@@ -288,7 +263,12 @@ class DetectorWorker(QThread):
                         "face": self._detector.face_detected,
                         "eye_open": self._detector._is_open,
                         "eye_ratio": float(self._detector._ratio) if self._detector._ratio is not None else None,
-                        "rate": float(rate),
+                        "rate": live["rate"],
+                        "rolling_rate": live["rate"],
+                        "rolling_valid_seconds": live["valid_seconds"],
+                        "rolling_blinks": live["blinks"],
+                        "reminder_elapsed": float(self._reminder_elapsed),
+                        "microbreak_presence": micro["presence_seconds"],
                         "no_blink": float(no_blink_sec),
                         "total": int(self._detector.blink_count),
                         "alert_level": level,

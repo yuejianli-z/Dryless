@@ -10,6 +10,7 @@ from PyQt6.QtWidgets import (
 )
 import config
 from microbreak import PRESENCE_MINUTES
+from live_metrics import frequency, MIN_VALID_SECONDS
 import theme as T
 from widgets import CameraView, TrendChart
 from widgets.selection_popup import StyledComboBox
@@ -17,6 +18,7 @@ from widgets.status_light import StatusLight, state_color
 from widgets.camera_sim import AspectRatioHost
 from widgets.soft_icon import SoftIcon
 from widgets.care_tips import CareTips
+from widgets.monitor_metrics import MonitorMetrics
 
 
 def _tr(zh, en):
@@ -218,54 +220,8 @@ class MonitorScreen(QWidget):
         state_layout.addWidget(status_header)
         self._message_body = _label(T.TYPE_BODY, T.C_TEXT2, wrap=True)
         state_layout.addWidget(self._message_body)
-        self._timer_row = QWidget()
-        numbers = QHBoxLayout(self._timer_row)
-        numbers.setContentsMargins(0, 0, 0, 0)
-        numbers.setSpacing(24)
-        self._since_lbl = _label(T.TYPE_CAPTION, T.C_TEXT2)
-        self._secs_lbl = _label(26, T.C_TEXT, weight=500)
-        self._total_label = _label(T.TYPE_CAPTION, T.C_TEXT2)
-        self._total_value = _label(26, T.C_TEXT, weight=500)
-        for name, label, value in (("clock", self._since_lbl, self._secs_lbl), ("eye", self._total_label, self._total_value)):
-            column = QVBoxLayout()
-            column.setSpacing(4)
-            metric_heading = QHBoxLayout()
-            metric_heading.setSpacing(6)
-            metric_heading.addWidget(SoftIcon(name,size=22,glyph_size=14))
-            metric_heading.addWidget(label,1)
-            column.addLayout(metric_heading)
-            column.addWidget(value)
-            numbers.addLayout(column, 1)
-        state_layout.addWidget(self._timer_row)
-        self._reminder_status_lbl = _label(T.TYPE_SECTION, T.C_TEXT, True)
-        self._rule_lbl = _label(T.TYPE_CAPTION, T.C_TEXT2, wrap=True)
-        self._reminder_status_lbl.setParent(self)
-        self._reminder_status_lbl.hide()
-        self._run_summary = QWidget()
-        self._run_summary.setFixedHeight(60)
-        run_layout = QHBoxLayout(self._run_summary)
-        run_layout.setContentsMargins(0, 0, 0, 0)
-        run_layout.setSpacing(24)
-        self._run_alerts_label = _label(T.TYPE_CAPTION, T.C_TEXT2)
-        self._run_alerts_value = _label(26, T.C_TEXT, weight=500)
-        self._run_time_label = _label(T.TYPE_CAPTION, T.C_TEXT2)
-        self._run_time_value = _label(26, T.C_TEXT, weight=500)
-        for name, label, value in (("bell", self._run_alerts_label, self._run_alerts_value),
-                             ("clock", self._run_time_label, self._run_time_value)):
-            column = QVBoxLayout()
-            column.setSpacing(4)
-            label.setFixedHeight(22)
-            value.setFixedHeight(34)
-            metric_heading = QHBoxLayout()
-            metric_heading.setSpacing(6)
-            metric_heading.addWidget(SoftIcon(name, size=22, glyph_size=14))
-            metric_heading.addWidget(label, 1)
-            column.addLayout(metric_heading)
-            column.addWidget(value)
-            run_layout.addLayout(column, 1)
-        state_layout.addWidget(self._run_summary)
-        state_layout.addWidget(self._rule_lbl)
-        state_layout.addStretch(1)
+        self.metrics = MonitorMetrics()
+        state_layout.addWidget(self.metrics, 1)
         # The sound control is reparented into the shared title bar by DrylessApp.
         self._sound_button = _button()
         self._sound_button.setCheckable(True)
@@ -333,12 +289,6 @@ class MonitorScreen(QWidget):
             self._camera_title: 34,
             self._status_lbl: 34,
             self._message_body: 36,
-            self._since_lbl: 22,
-            self._secs_lbl: 34,
-            self._total_label: 22,
-            self._total_value: 34,
-            self._reminder_status_lbl: 24,
-            self._rule_lbl: 20,
             self._trend_title: 30,
             self._frequency_value: 30,
             self._frequency_unit: 30,
@@ -349,9 +299,6 @@ class MonitorScreen(QWidget):
         for label, height in heights.items():
             label.setFixedHeight(height)
         self._message_body.setAlignment(Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignTop)
-        self._timer_row.setFixedHeight(60)
-        self._secs_lbl.setAlignment(Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignBottom)
-        self._total_value.setAlignment(Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignBottom)
         for button in (self._pause_button, self._sound_button):
             button.setFixedHeight(36)
         self._preview_button.setFixedHeight(32)
@@ -449,10 +396,10 @@ class MonitorScreen(QWidget):
         counts = list(state.get("minute_history") or [])
         exposure = list(state.get("minute_valid_seconds") or [])
         self._live_samples = [
-            (float(count), float(exposure[i])) if i < len(exposure) and exposure[i] >= 30 else None
+            (float(count), float(exposure[i])) if i < len(exposure) and exposure[i] >= MIN_VALID_SECONDS else None
             for i, count in enumerate(counts)
         ]
-        values = [count * 60 / seconds if item is not None else None
+        values = [frequency(count, seconds) if item is not None else None
                   for item in self._live_samples
                   for count, seconds in [item or (0, 1)]]
         self.trend.setData(values)
@@ -565,27 +512,8 @@ class MonitorScreen(QWidget):
         self._status_lbl.setText(status)
         self._status_dot.setState(status_key)
         self._status_lbl.setStyleSheet(f"color:{state_color(status_key).name()};background:transparent;border:none;")
-        reminder_text = _tr("提醒已暂停", "Alerts paused") if self._paused else (
-            _tr("等待检测就绪", "Waiting for detection") if not ready else
-            _tr("正在提醒", "Alert active") if level >= 0 else _tr("提醒已开启", "Alerts enabled")
-        )
-        if self._alert_error and not self._paused:
-            reminder_text = _tr("声音：故障", "Sound: error")
-        if micro_active and not self._alert_error:
-            reminder_text = _tr("微休息 · 眨眼提醒暂缓", "Break · blink alerts on hold")
-        self._reminder_status_lbl.setText(reminder_text)
         self._message_body.setText(body)
         self._message_body.setToolTip("\n".join(message for message in (self._error, self._alert_error) if message))
-        self._secs_lbl.setText(f"{seconds:.1f}s" if ready else "—")
-        self._timer_row.setVisible(True)
-        urgency = T.ALERT_LEVELS[level]["c"] if level >= 0 else T.C_TEXT
-        self._secs_lbl.setStyleSheet(f"color:{urgency};background:transparent;border:none;")
-        self._rule_lbl.setText(_tr(
-            f"{base:g} 秒开始提醒 · 间隔 {interval:g} 秒",
-            f"Alert at {base:g}s · repeat every {interval:g}s",
-        ))
-        if micro_active:
-            self._rule_lbl.setText(_tr("提示结束后恢复眨眼提醒", "Blink alerts resume after this reminder"))
         samples = getattr(self, '_live_samples', [])[-self.trend.windowMinutes():]
         available = [item for item in samples if item is not None]
         duration = sum(item[1] for item in available)
@@ -597,14 +525,6 @@ class MonitorScreen(QWidget):
         self._message_body.setText(body)
         if ready and level < 0 and not self._paused and not self._alert_error and not micro_active:
             self._message_body.setText(_tr("已识别人脸，正在记录眨眼。", "Face detected. Blink recording is active."))
-        total = f"{int(state.get('total', 0)):,}" if self._last_state else "—"
-        alerts = sum(self._alert_counts)
-        self._total_value.setText(total)
-        self._run_alerts_value.setText(f"{alerts:,}")
-        elapsed = max(0, int(state.get("session_sec", 0)))
-        hours, remainder = divmod(elapsed, 3600)
-        minutes, seconds = divmod(remainder, 60)
-        self._run_time_value.setText(f"{hours:02d}:{minutes:02d}:{seconds:02d}" if self._last_state else "—")
         if self._camera_state in ("off", "stopping", "starting"):
             stopped = self._camera_state == "off"
             status_key = "off" if stopped else "waiting"
@@ -614,24 +534,16 @@ class MonitorScreen(QWidget):
             self._status_lbl.setStyleSheet(f"color:{state_color(status_key).name()};background:transparent;border:none;")
             self._status_dot.setState(status_key)
             self._status_key = status_key
-            self._secs_lbl.setText("—")
             self._message_body.setText(_tr("本次已结束。开启摄像头可开始新的记录。", "Session ended. Start the camera for a new session.") if self._last_state else _tr("开启摄像头后，开始检测与记录。", "Start the camera to begin tracking and recording."))
             if not stopped:
                 self._message_body.setText(_tr("正在准备摄像头，检测就绪后开始记录。", "Preparing the camera. Recording starts when tracking is ready.") if self._camera_state == "starting" else _tr("正在释放设备，画面与提醒已停止。", "Releasing the device. Preview and reminders have stopped."))
-            self._rule_lbl.setText(_tr("检测与提醒均已停止", "Detection and reminders are stopped") if stopped else _tr("检测就绪后开始提醒", "Reminders start when tracking is ready"))
+        self.metrics.setState(state, ready, self._camera_state == "running" and not self._error, self._paused)
         self.tips.setAlertActive(self._camera_state == "running" and (level >= 0 or micro_active))
         self.statusChanged.emit(status_key, status)
 
     def retranslate(self):
         self._page_title.setText(_tr("监测", "Monitor"))
         self._camera_title.setText(_tr("实时画面", "Live camera"))
-        self._total_label.setText(_tr("本次眨眼", "Blinks this run"))
-        self._run_alerts_label.setText(_tr("本次提醒", "Alerts this run"))
-        self._run_time_label.setText(_tr("本次运行", "Running time"))
-        self._run_alerts_value.setToolTip(_tr("按进入提醒级别计数，重启后归零。", "Counts entries into reminder levels; resets on restart."))
-        self._run_time_value.setToolTip(_tr("本次启动后的运行时长（时:分:秒）。", "Time since this run started (hours:minutes:seconds)."))
-        self._since_lbl.setText(_tr("距上次眨眼", "Since last blink"))
-        self._secs_lbl.setToolTip(_tr("检测到眨眼或重新识别人脸时重新计时。", "Resets after a detected blink or when your face is detected again."))
         self._preview_hidden_title.setText(_tr("预览已隐藏", "Preview hidden"))
         self._preview_hidden_text.setText(_tr("隐藏画面不会停止检测。", "Hiding the image does not stop detection."))
         self._stats_button.setText(_tr("更多统计", "More statistics"))
