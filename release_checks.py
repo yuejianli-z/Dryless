@@ -8,7 +8,7 @@ import traceback
 import wave
 
 def run(app, output, camera=False):
-    from PyQt6.QtCore import QTimer
+    from PyQt6.QtCore import QTimer, QCoreApplication, QEvent
     from PyQt6.QtWidgets import QAbstractScrollArea
     import config
     import ui
@@ -125,6 +125,11 @@ def run(app, output, camera=False):
             app.processEvents()
             if window.worker.isRunning():
                 window.worker.wait(5000)
+            # Self-test does not run app.exec(): destroy widgets while QApplication
+            # and Python event filters are alive, rather than at interpreter teardown.
+            window.deleteLater()
+            QCoreApplication.sendPostedEvents(None, QEvent.Type.DeferredDelete)
+            app.processEvents()
         sys.excepthook = old_hook
         report['passed'] = not report['errors'] and all(x['passed'] for x in report['checks'])
         output.parent.mkdir(parents=True, exist_ok=True)
