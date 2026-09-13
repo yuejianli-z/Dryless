@@ -1,0 +1,11 @@
+{
+  "version": "0.2.0-rc.5",
+  "source_commit": "aec31c78251e29d520d91d0ac02eba43caae51f8",
+  "sha256": "41fa5b07b9bb11609177c6aabb7313ca8b6715a5ee3d7d2ecb1d13ea990cd7c7",
+  "ui_checks": 185,
+  "camera_lifecycle_simulated_checks": 38,
+  "consistency_checks": 171,
+  "packaged_checks": 63,
+  "physical_camera_retested": false,
+  "mac_runtime_tested": false
+}
