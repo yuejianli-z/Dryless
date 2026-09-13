@@ -14,6 +14,9 @@
 4. 两端完成合同后，Mac PR 到 codex/dryless-design-v2；整合后双方重新验收/构建。
 5. 两平台在同一最终提交通过 RELEASE_CHECKLIST.md，之后再安排正式 tag/release。
 
+共同交接问题：[GitHub #2](https://github.com/yuejianli-z/Dryless/issues/2)。
+最新规则为20分钟微休息；旧rc.1报告保留25分钟历史证据，不能当成当前触发值。
+
 ## 如何通信
 GitHub 分支/PR + 本目录交接文档是共同记录。登录相同 Codex 账号不替代源码同步。
 开始工作先 git fetch，阅读另一平台最新验收记录；结束时提交并 push。

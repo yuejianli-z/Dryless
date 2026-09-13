@@ -21,6 +21,12 @@ remain pending; this candidate does not claim they are implemented.
 
 ## Package validation
 
-Build and packaged checks pending at this source commit; results and exact binary SHA256 will be
-recorded here after construction. Previous rc.1 binaries and their reports remain intact.
+- Source commit: `67b37de7096d47310dbbe2079794fddc3fcab17b`.
+- Local build: `python -B build.py` completed; output `dist/0.2.0-rc.2/Dryless.exe`.
+- Packaged `--self-test`, launched from outside the source checkout with a temporary profile:
+  **62 checks passed**, no reported errors. Includes actual packaged timer execution through1200 seconds.
+- EXE bytes: 131046428; SHA256: `509321f9299046d0d137217145663c1b6a7fcc772c48cad9d3afc802b31dd0b0`.
+- Desktop shortcut updated to rc.2 after gracefully closing rc.1; old package and shortcut backup preserved.
+- Detailed machine-readable evidence: [windows-rc2-validation.json](windows-rc2-validation.json).
+- Previous rc.1 binaries and their reports remain intact. This is a local candidate, not a public stable release.
 No Mac runtime or camera accuracy claim is made by Windows checks.

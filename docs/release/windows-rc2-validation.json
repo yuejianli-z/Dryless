@@ -1,0 +1,272 @@
+{
+  "version": "0.2.0-rc.2",
+  "source_commit": "67b37de7096d47310dbbe2079794fddc3fcab17b",
+  "exe_sha256": "509321f9299046d0d137217145663c1b6a7fcc772c48cad9d3afc802b31dd0b0",
+  "exe_bytes": 131046428,
+  "source_checks": {
+    "unittest": 22,
+    "reminder_integration": 66
+  },
+  "packaged_self_test": {
+    "version": "0.2.0-rc.2",
+    "frozen": true,
+    "platform": "Windows-11-10.0.26200-SP0",
+    "mode": "self-test",
+    "checks": [
+      {
+        "name": "resource:assets/fonts/DrylessCJK-Medium.ttf",
+        "passed": true
+      },
+      {
+        "name": "resource:assets/fonts/DrylessCJK-Regular.ttf",
+        "passed": true
+      },
+      {
+        "name": "resource:assets/fonts/DrylessCJK-SemiBold.ttf",
+        "passed": true
+      },
+      {
+        "name": "resource:assets/fonts/DrylessSans-Medium.ttf",
+        "passed": true
+      },
+      {
+        "name": "resource:assets/fonts/DrylessSans-Regular.ttf",
+        "passed": true
+      },
+      {
+        "name": "resource:assets/fonts/DrylessSans-SemiBold.ttf",
+        "passed": true
+      },
+      {
+        "name": "resource:assets/icons/desktop-eye-transparent.ico",
+        "passed": true
+      },
+      {
+        "name": "resource:assets/icons/desktop-eye-transparent.png",
+        "passed": true
+      },
+      {
+        "name": "resource:face_landmarker.task",
+        "passed": true
+      },
+      {
+        "name": "resource:icon.ico",
+        "passed": true
+      },
+      {
+        "name": "resource:icon.png",
+        "passed": true
+      },
+      {
+        "name": "resource:sounds/blip/alert0.wav",
+        "passed": true
+      },
+      {
+        "name": "resource:sounds/blip/alert1.wav",
+        "passed": true
+      },
+      {
+        "name": "resource:sounds/blip/alert2.wav",
+        "passed": true
+      },
+      {
+        "name": "resource:sounds/microbreak/started.wav",
+        "passed": true
+      },
+      {
+        "name": "resource:sounds/original/alert0.wav",
+        "passed": true
+      },
+      {
+        "name": "resource:sounds/original/alert1.wav",
+        "passed": true
+      },
+      {
+        "name": "resource:sounds/original/alert2.wav",
+        "passed": true
+      },
+      {
+        "name": "resource:sounds/polite/alert0.wav",
+        "passed": true
+      },
+      {
+        "name": "resource:sounds/polite/alert1.wav",
+        "passed": true
+      },
+      {
+        "name": "resource:sounds/polite/alert2.wav",
+        "passed": true
+      },
+      {
+        "name": "resource:sounds/sharp/alert0.wav",
+        "passed": true
+      },
+      {
+        "name": "resource:sounds/sharp/alert1.wav",
+        "passed": true
+      },
+      {
+        "name": "resource:sounds/sharp/alert2.wav",
+        "passed": true
+      },
+      {
+        "name": "wav:polite:0",
+        "passed": true
+      },
+      {
+        "name": "wav:polite:1",
+        "passed": true
+      },
+      {
+        "name": "wav:polite:2",
+        "passed": true
+      },
+      {
+        "name": "wav:sharp:0",
+        "passed": true
+      },
+      {
+        "name": "wav:sharp:1",
+        "passed": true
+      },
+      {
+        "name": "wav:sharp:2",
+        "passed": true
+      },
+      {
+        "name": "wav:original:0",
+        "passed": true
+      },
+      {
+        "name": "wav:original:1",
+        "passed": true
+      },
+      {
+        "name": "wav:original:2",
+        "passed": true
+      },
+      {
+        "name": "wav:blip:0",
+        "passed": true
+      },
+      {
+        "name": "wav:blip:1",
+        "passed": true
+      },
+      {
+        "name": "wav:blip:2",
+        "passed": true
+      },
+      {
+        "name": "microbreak-no-early-trigger",
+        "passed": true
+      },
+      {
+        "name": "microbreak-at-20-minutes",
+        "passed": true
+      },
+      {
+        "name": "font:Dryless Sans",
+        "passed": true
+      },
+      {
+        "name": "font:Dryless CJK",
+        "passed": true
+      },
+      {
+        "name": "model-loaded-no-face-on-black",
+        "passed": true
+      },
+      {
+        "name": "zh/1100/monitor/no-scroll",
+        "passed": true
+      },
+      {
+        "name": "zh/1100/stats/no-scroll",
+        "passed": true
+      },
+      {
+        "name": "zh/1100/settings/no-scroll",
+        "passed": true
+      },
+      {
+        "name": "zh/1240/monitor/no-scroll",
+        "passed": true
+      },
+      {
+        "name": "zh/1240/stats/no-scroll",
+        "passed": true
+      },
+      {
+        "name": "zh/1240/settings/no-scroll",
+        "passed": true
+      },
+      {
+        "name": "en/1100/monitor/no-scroll",
+        "passed": true
+      },
+      {
+        "name": "1100/monitor/language-layout",
+        "passed": true
+      },
+      {
+        "name": "en/1100/stats/no-scroll",
+        "passed": true
+      },
+      {
+        "name": "1100/stats/language-layout",
+        "passed": true
+      },
+      {
+        "name": "en/1100/settings/no-scroll",
+        "passed": true
+      },
+      {
+        "name": "1100/settings/language-layout",
+        "passed": true
+      },
+      {
+        "name": "en/1240/monitor/no-scroll",
+        "passed": true
+      },
+      {
+        "name": "1240/monitor/language-layout",
+        "passed": true
+      },
+      {
+        "name": "en/1240/stats/no-scroll",
+        "passed": true
+      },
+      {
+        "name": "1240/stats/language-layout",
+        "passed": true
+      },
+      {
+        "name": "en/1240/settings/no-scroll",
+        "passed": true
+      },
+      {
+        "name": "1240/settings/language-layout",
+        "passed": true
+      },
+      {
+        "name": "pause-propagation",
+        "passed": true
+      },
+      {
+        "name": "resume-propagation",
+        "passed": true
+      },
+      {
+        "name": "audio-dispatch-and-stop",
+        "passed": true
+      }
+    ],
+    "errors": [],
+    "passed": true
+  },
+  "limits": [
+    "Microbreak timing simulated; real 20-minute face-present session not performed.",
+    "F2 W1-W7 and M1-M7 remain pending. No native Mac runtime acceptance."
+  ]
+}
