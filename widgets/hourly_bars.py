@@ -25,7 +25,7 @@ class HourlyBars(QWidget):
         GAP = 2
         N = 24
         slot = (W - GAP * (N - 1)) / N
-        bar_area_h = H - 14
+        bar_area_h = H - 20
         peak = 28.0
 
         # 把传入数据转成 hour→rate 字典
@@ -36,9 +36,9 @@ class HourlyBars(QWidget):
             except ValueError:
                 pass
 
-        f = QFont(T.FONT_UI)
+        f = T.ui_font()
         f.setFamilies([T.FONT_UI] + T.FONT_FB)
-        f.setPixelSize(9)
+        f.setPixelSize(12)
         p.setFont(f)
 
         # 无数据时显示提示
@@ -48,6 +48,7 @@ class HourlyBars(QWidget):
                        Qt.AlignmentFlag.AlignCenter, t("no_data_hourly"))
             return
 
+        peak = max(20.0, max(rate_map.values()))
         for hour in range(N):
             x = hour * (slot + GAP)
             rate = rate_map.get(hour)
@@ -56,7 +57,7 @@ class HourlyBars(QWidget):
                 pct = max(0.0, min(1.0, rate / peak))
                 bh = max(4.0, pct * (bar_area_h - 4))
                 y = bar_area_h - bh
-                if 15 <= rate <= 20:
+                if rate >= 0:
                     c = QColor(T.BRAND)
                 elif rate < 15:
                     c = QColor(T.WARN)
@@ -70,5 +71,5 @@ class HourlyBars(QWidget):
             # X 轴标签：只标 0/6/12/18
             if hour % 6 == 0:
                 p.setPen(QColor(T.C_TEXT3))
-                p.drawText(QRectF(x, bar_area_h + 2, slot * 2, 12),
+                p.drawText(QRectF(x, bar_area_h + 2, slot * 3, 18),
                            Qt.AlignmentFlag.AlignLeft, str(hour))

@@ -46,7 +46,7 @@ class SliderRow(QWidget):
 
         top = QHBoxLayout(); top.setSpacing(8)
         self._lbl = QLabel(label)
-        f = QFont(T.FONT_UI); f.setFamilies([T.FONT_UI] + T.FONT_FB)
+        f = T.ui_font(); f.setFamilies([T.FONT_UI] + T.FONT_FB)
         f.setPixelSize(13); f.setWeight(QFont.Weight.Medium)
         self._lbl.setFont(f)
         self._lbl.setStyleSheet(f"color:{T.C_TEXT}; background:transparent; border:none;")
@@ -59,7 +59,7 @@ class SliderRow(QWidget):
         top.addStretch(1)
 
         self._val_lbl = QLabel("")
-        f2 = QFont(T.FONT_UI); f2.setFamilies([T.FONT_UI] + T.FONT_FB)
+        f2 = T.ui_font(); f2.setFamilies([T.FONT_UI] + T.FONT_FB)
         f2.setPixelSize(13); f2.setWeight(QFont.Weight.DemiBold)
         self._val_lbl.setFont(f2)
         self._val_lbl.setStyleSheet(f"color:{T.BRAND}; background:transparent; border:none;")
@@ -114,7 +114,7 @@ class ToggleRow(QWidget):
         row.setContentsMargins(0, 0, 0, 0)
         left = QVBoxLayout(); left.setSpacing(2)
         self._lbl = QLabel(label)
-        f = QFont(T.FONT_UI); f.setFamilies([T.FONT_UI] + T.FONT_FB)
+        f = T.ui_font(); f.setFamilies([T.FONT_UI] + T.FONT_FB)
         f.setPixelSize(13); f.setWeight(QFont.Weight.Medium)
         self._lbl.setFont(f)
         self._lbl.setStyleSheet(f"color:{T.C_TEXT}; background:transparent; border:none;")

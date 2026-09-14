@@ -1,0 +1,3 @@
+# Preserve exact bytes of hashed third-party UI resources across checkouts.
+assets/icons/github-mark.svg -text
+assets/icons/octicons-LICENSE.txt -text

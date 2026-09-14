@@ -1,217 +1,160 @@
 # Dryless
 
+[English](README.md) · [简体中文](README.zh-CN.md)
+
 **Blink more, dry less.**
 
-[Download the latest Windows release](https://github.com/yuejianli-z/Dryless/releases/latest)
+**多一点轻眨，少一点疲乏。**
 
-[下载最新 Windows 版本](https://github.com/yuejianli-z/Dryless/releases/latest)
+Dryless is a local-first desktop companion that records blink rhythm, escalates
+gentle blink reminders, and suggests a microbreak after sustained presence.
+It has native Windows and macOS implementations: the product behavior is
+shared, while each platform keeps the interaction and window conventions of
+its operating system.
 
-Dryless is a local-first Windows desktop app that monitors blink frequency in real time and reminds users to blink before eye strain and dry-eye discomfort build up.
+Camera frames are analysed in memory on the device. Dryless does not upload or
+store camera photos, video, or facial templates; it keeps only settings and
+numeric minute-level blink history locally.
 
-Dryless 是一个本地优先的 Windows 桌面应用，用于实时监测眨眼频率，并在长时间未眨眼时提醒用户主动眨眼，帮助缓解用眼疲劳和干眼不适。
+## Download
 
-![Python](https://img.shields.io/badge/Python-3.10%2B-blue)
-![Platform](https://img.shields.io/badge/platform-Windows-lightgrey)
-![License](https://img.shields.io/badge/license-MIT-green)
+The official builds are published together on the
+[GitHub Releases page](https://github.com/yuejianli-z/Dryless/releases):
 
-## Download / 下载
+- **Windows 10/11 x64:** `Dryless-0.2.0-windows.exe`
+- **macOS 14 or later:** `macos/release/Dryless.app`
 
-For most users, download the latest `Dryless.exe` from GitHub Releases and double-click to run it.
+The Windows EXE is an attached GitHub Release file. The macOS build is a
+directly runnable App bundle tracked at `macos/release/Dryless.app`; download
+or clone the repository on a Mac, then open that bundle. Checksums and
+platform-specific notes accompany the release source.
 
-对于大多数用户，直接从 GitHub Releases 下载最新的 `Dryless.exe`，双击即可运行。
+## Interface previews
 
-Release page / 发布页:
+These are screenshots of the native Windows and macOS apps. Each image is shown
+at the full README content width, in the order Monitor, Stats, then Settings.
+The monitor images use the credited public portrait and contain no private
+camera capture.
 
-- https://github.com/yuejianli-z/Dryless/releases
+### Windows
 
-Notes / 说明:
+#### Monitor
 
-- The release executable is intended to be self-contained on Windows.
-- You do not need to install Python when using the release executable.
-- The executable is currently unsigned, so Windows SmartScreen or antivirus software may show a warning.
-- If you prefer, you can also build and run Dryless from source.
+<img src="docs/images/windows/monitor-en.png" alt="Dryless Windows Monitor" width="100%">
 
-- 发布版 EXE 面向 Windows 开箱即用。
-- 使用发布版 EXE 时不需要另外安装 Python。
-- 由于当前 EXE 未签名，Windows SmartScreen 或杀毒软件可能会弹出提示。
-- 如果你更谨慎，也可以从源码自行构建运行。
+#### Stats
 
-## Features / 功能
+<img src="docs/images/windows/stats-en.png" alt="Dryless Windows Stats" width="100%">
 
-- Real-time blink detection powered by MediaPipe
-- Local-only camera processing
-- No camera frame upload
-- No camera image or video storage
-- Adaptive eye-openness baseline
-- Escalating audio alerts
-- Session stats and local history
-- English and Chinese UI strings
-- Windows tray integration
+#### Settings
 
-- 基于 MediaPipe 的实时眨眼检测
-- 摄像头画面仅在本地处理
-- 不上传摄像头画面
-- 不保存摄像头图片或视频
-- 自适应眼部开合基线
-- 逐级增强的声音提醒
-- 会话统计与本地历史记录
-- 中英文界面文案
-- Windows 托盘集成
+<img src="docs/images/windows/settings-en.png" alt="Dryless Windows Settings" width="100%">
 
-## Privacy / 隐私说明
+### macOS
 
-Dryless is designed as a local-first desktop app.
+#### Monitor
 
-Dryless 被设计为一个本地优先的桌面应用。
+<img src="docs/images/macos/monitor-en.png" alt="Dryless macOS Monitor" width="100%">
 
-What Dryless does / Dryless 会做什么:
+#### Stats
 
-- Opens your local webcam through OpenCV
-- Processes frames in memory to estimate eye openness and blink events
-- Displays a live preview inside the app
-- Stores local settings and numeric blink statistics under `~/.blink_reminder/`
+<img src="docs/images/macos/stats-en.png" alt="Dryless macOS Stats" width="100%">
 
-- 通过 OpenCV 打开本机摄像头
-- 在内存中处理画面，用于估算眼睛开合程度和眨眼事件
-- 在应用内显示实时预览
-- 将本地设置和数字化眨眼统计保存到 `~/.blink_reminder/`
+#### Settings
 
-What Dryless does not do / Dryless 不会做什么:
+<img src="docs/images/macos/settings-en.png" alt="Dryless macOS Settings" width="100%">
 
-- It does not upload camera frames
-- It does not save camera images
-- It does not record video
-- It does not collect account information
-- It does not include analytics or telemetry logic in the source code
+## What both platforms do
 
-- 不上传摄像头画面
-- 不保存摄像头图片
-- 不录制视频
-- 不收集账号信息
-- 源码中不包含分析统计或遥测上报逻辑
+- Start or release the local camera explicitly; hiding preview, pausing alerts,
+  muting sound, and stopping the camera remain separate controls.
+- Count blink events from local face and eye measurement, then show a rolling
+  60-second rate and fixed one-minute rhythm cells. A rate requires at least
+  30 seconds of valid eye-detection time; a real zero and missing data remain
+  distinct.
+- Escalate blink reminders through exactly three levels: first, second, and
+  stronger. The third level repeats until a blink or state change resets it.
+- Offer Polite, Sharp, Ding, and Blip sound themes. Selecting a theme previews
+  its first stage; **Preview all 3** plays the three stages in order.
+- Trigger a single 20-minute microbreak prompt after continuous detected
+  presence. It temporarily takes priority over blink reminders while detection
+  and numeric recording continue.
+- Keep minute history locally, aggregate by hour/day/week/month, and export
+  CSV. The interface is available in English and Simplified Chinese.
+- Stay available in the Windows notification area or macOS menu bar for camera,
+  pause, sound, open-window, and quit controls.
 
-## Requirements / 运行要求
+The detailed behavior contract is maintained in
+[docs/FEATURE_PARITY.md](docs/FEATURE_PARITY.md).
 
-For the release executable / 对于发布版 EXE:
+## Platform implementations
 
-- Windows
-- A working webcam
+| Platform | Runtime | Source | Development validation |
+| --- | --- | --- | --- |
+| Windows | Python / PyQt6 / MediaPipe | [Windows app](main.py) | [release note](docs/RELEASE.md) |
+| macOS | SwiftUI / AVFoundation / Vision | [macOS app](macos/) | [release note](docs/RELEASE.md) |
 
-- Windows 系统
-- 可用摄像头
+### Windows development
 
-For running from source / 对于源码运行:
+The Windows 0.2.0 build uses Python 3.14 x64. From the
+repository root:
 
-- Windows
-- Python 3.10+
-- A working webcam
-- Dependencies listed in `requirements.txt`
+```powershell
+python -m venv .venv
+.venv\Scripts\python -m pip install -r requirements-windows.lock
+.venv\Scripts\python -m unittest discover -s tests -v
+.venv\Scripts\python main.py
+.venv\Scripts\python build.py
+```
 
-- Windows 系统
-- Python 3.10+
-- 可用摄像头
-- `requirements.txt` 中列出的依赖
+`build.py` writes a versioned portable executable under `dist/`; it does not
+overwrite previous build directories. The package uses a temporary profile for its
+`--self-test` and `--camera-smoke` checks, so those commands do not modify
+personal history or save camera frames.
 
-## Run From Source / 从源码运行
+### macOS development
+
+Dryless for macOS requires macOS 14 or later and a compatible Apple Swift
+toolchain. From the repository root:
 
 ```bash
-pip install -r requirements.txt
-python main.py
+cd macos
+swift build --product DrylessMac
+swift run DrylessCoreChecks
+./script/build_and_run.sh
+./script/package_release.sh
 ```
 
-The repository currently includes `face_landmarker.task`, the MediaPipe face model required by the app.
+The helper stages a development app at `macos/dist/Dryless.app`.
+`package_release.sh` creates the directly runnable App bundle at
+`macos/release/Dryless.app` on a Mac.
 
-当前仓库包含应用所需的 MediaPipe 人脸模型文件 `face_landmarker.task`。
+## Release integrity
 
-Bundled custom fonts are optional. If `assets/fonts/` is missing, Dryless falls back to system fonts.
+Source stays in Git; the Windows executable is attached to the matching GitHub
+Release, and the directly runnable macOS App bundle is kept at
+`macos/release/Dryless.app`. See the single [release note](docs/RELEASE.md).
+Do not treat a successful build or a preview image as camera-accuracy evidence.
 
-自定义字体资源是可选的。如果缺少 `assets/fonts/`，Dryless 会自动回退到系统字体。
+## Documentation artwork credit
 
-If you remove the model file, download it from MediaPipe and place it in the project root as:
+The README monitor previews use **“Woman looking at the camera”** by
+[Marek Pospisil](https://unsplash.com/photos/woman-looking-at-the-camera--wTtFwEfvZo),
+licensed under the [Unsplash License](https://unsplash.com/license). The
+source image and usage boundary are recorded in
+[docs/readme-assets/README.md](docs/readme-assets/README.md).
 
-如果你移除了模型文件，需要从 MediaPipe 下载，并放到项目根目录：
+## License and notices
 
-```text
-face_landmarker.task
-```
+Dryless-owned source is released under the [MIT License](LICENSE). Third-party
+components keep their own terms. In particular, the packaged Windows PyQt6
+application includes GPLv3 components and is not an MIT-only executable; see
+[THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md) and bundled notices before
+redistributing a package.
 
-## Build / 打包
+## Contributing
 
-Install PyInstaller and run:
-
-安装 PyInstaller 后运行：
-
-```bash
-pip install pyinstaller
-python build.py
-```
-
-The generated executable is written to:
-
-生成的 EXE 文件位于：
-
-```text
-dist/Dryless.exe
-```
-
-Build outputs should not be committed to Git. Publish executables through GitHub Releases instead.
-
-构建产物不建议提交到 Git 仓库，推荐通过 GitHub Releases 发布 EXE。
-
-## Project Structure / 项目结构
-
-```text
-dryless/
-  main.py              App entry point
-  ui.py                Main PyQt window and detection worker
-  blink_detector.py    MediaPipe blink detection logic
-  alert.py             Audio alert manager
-  config.py            Local settings persistence
-  history_store.py     Local blink statistics storage
-  i18n.py              English and Chinese UI strings
-  theme.py             UI colors and visual tokens
-  tray.py              Windows tray integration
-  screens/             Monitor, stats, and settings screens
-  widgets/             Reusable PyQt widgets
-  sounds/              Alert sound files
-  build.py             PyInstaller build script
-  face_landmarker.task MediaPipe face model
-```
-
-## Release Strategy / 发布方式
-
-Recommended GitHub layout:
-
-- Source code in the repository
-- Executable files in GitHub Releases
-- Version tags such as `v0.1.0`, `v0.1.1`, `v0.2.0`
-
-推荐 GitHub 发布方式：
-
-- 仓库中放源码
-- GitHub Releases 中放 EXE
-- 使用 `v0.1.0`、`v0.1.1`、`v0.2.0` 这样的版本标签
-
-## Known Notes / 已知说明
-
-- Dryless is currently focused on Windows
-- The release executable may trigger warnings because it is unsigned
-- Camera access can be blocked by Windows privacy settings or corporate security policies
-- Blink detection quality depends on lighting, camera angle, face visibility, and glasses reflections
-
-- Dryless 当前主要面向 Windows
-- 发布版 EXE 因未签名，可能触发系统或杀毒软件提示
-- 摄像头权限可能被 Windows 隐私设置或公司安全策略阻止
-- 眨眼检测效果会受到光线、摄像头角度、人脸可见度、眼镜反光等因素影响
-
-## Contributing / 参与贡献
-
-Issues and pull requests are welcome. Please keep privacy and local-first behavior as core project principles.
-
-欢迎提交 Issue 和 Pull Request。请始终将隐私保护和本地优先作为项目核心原则。
-
-## License / 许可证
-
-MIT License. See [LICENSE](LICENSE).
-
-本项目使用 MIT License，详见 [LICENSE](LICENSE)。
+Keep the product contract aligned across platforms without forcing identical
+pixel layouts. Do not add camera captures, personal data, generated history,
+or README artwork to either runtime target. Read
+[docs/FEATURE_PARITY.md](docs/FEATURE_PARITY.md) before changing shared behavior.

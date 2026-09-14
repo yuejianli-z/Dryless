@@ -12,7 +12,7 @@ class Card(QFrame):
         self.setStyleSheet(
             f"QFrame#Card {{"
             f"  background: {T.C_CARD};"
-            f"  border: 1px solid {T.C_BORDER};"
+            f"  border: none;"
             f"  border-radius: {T.R_CARD}px;"
             f"}}"
         )
@@ -30,7 +30,7 @@ class SectionLabel(QLabel):
     def __init__(self, text, parent=None):
         super().__init__(text, parent)
         self.setStyleSheet(
-            f"color:{T.C_TEXT3}; font-size:10px;"
-            f"letter-spacing:1px; font-weight:500;"
+            f"color:{T.C_TEXT3}; font-size:12px;"
+            f"letter-spacing:0px; font-weight:500;"
             f"background:transparent; border:none;"
         )

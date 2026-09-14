@@ -1,396 +1,755 @@
-"""Settings screen with sliders and a live config preview."""
+"""Compact native settings with a live reminder-rule summary."""
+import math
+
+import math
+
+from PyQt6.QtCore import Qt, QRectF, QSize, pyqtSignal
+from PyQt6.QtGui import QFont, QPainter, QColor, QPen
 from PyQt6.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout, QLabel, QFrame, QPushButton,
+    QLineEdit, QSpinBox, QDoubleSpinBox, QAbstractSpinBox, QCheckBox, QSizePolicy, QStackedWidget,
 )
-from PyQt6.QtCore import Qt, pyqtSignal
-from PyQt6.QtGui import QFont
 
 import config
 import theme as T
-from i18n import t
-from widgets import SectionLabel, SliderRow, ToggleRow, Toggle
 from config import save_config
+from version import VERSION
+from project_links import open_project, open_issues
+from widgets import Card
+from widgets.soft_icon import SoftIcon, icon
 
 
-def _fnt(size, weight=400):
-    f = QFont(T.FONT_UI)
-    f.setFamilies([T.FONT_UI] + T.FONT_FB)
-    f.setPixelSize(int(size))
-    m = {400: QFont.Weight.Normal, 500: QFont.Weight.Medium,
-         600: QFont.Weight.DemiBold, 700: QFont.Weight.Bold}
-    f.setWeight(m.get(weight, QFont.Weight.Normal))
-    return f
+class _CaretEditor(QLineEdit):
+    """A numeric editor with a caret and no text-selection rendering."""
+    def selectAll(self):
+        self.deselect()
+
+    def paintEvent(self, event):
+        self.deselect()
+        super().paintEvent(event)
+
+    def keyPressEvent(self, event):
+        super().keyPressEvent(event)
+        self.deselect()
+
+    def mouseMoveEvent(self, event):
+        super().mouseMoveEvent(event)
+        self.deselect()
+
+    def mouseDoubleClickEvent(self, event):
+        super().mouseDoubleClickEvent(event)
+        self.deselect()
 
 
-class _Section(QWidget):
-    def __init__(self, title):
-        super().__init__()
-        v = QVBoxLayout(self)
-        v.setContentsMargins(0, 0, 0, 20)
-        v.setSpacing(0)
-        self._header = QLabel(title)
-        self._header.setStyleSheet(
-            f"color:{T.C_TEXT3}; font-size:11px; font-weight:500; background:transparent; border:none;"
-            f"letter-spacing:1px; padding-bottom:9px;"
-            f"border-bottom:1px solid {T.C_BORDER};"
-        )
-        v.addWidget(self._header)
-        v.addSpacing(14)
-        self._v = v
+class _StepInteraction:
+    """Numeric editing uses a caret; stepping never leaves selected text."""
+    def validate(self, text, position):
+        from PyQt6.QtGui import QValidator
+        import re
+        result = super().validate(text, position)
+        if result[0] == QValidator.State.Invalid:
+            candidate = text
+            if self.suffix() and candidate.endswith(self.suffix()):
+                candidate = candidate[:-len(self.suffix())]
+            candidate = candidate.strip()
+            pattern = r"[+-]?\d*(?:\.\d{0,2})?" if isinstance(self, QDoubleSpinBox) else r"[+-]?\d*"
+            if re.fullmatch(pattern, candidate):
+                # Permit temporary out-of-range text while deleting/retyping.
+                # The spinbox applies its range when the edit is committed.
+                return QValidator.State.Intermediate, text, position
+        return result
 
-    def setTitle(self, title):
-        self._header.setText(title)
+    def stepBy(self, steps):
+        super().stepBy(steps)
+        self.lineEdit().deselect()
 
-    def add(self, w):
-        self._v.addWidget(w)
+    def focusOutEvent(self, event):
+        super().focusOutEvent(event)
+        self.lineEdit().deselect()
 
-    def addSpacing(self, n):
-        self._v.addSpacing(n)
 
-    def addLayout(self, l):
-        self._v.addLayout(l)
+class _IntegerInput(_StepInteraction, QSpinBox):
+    pass
+
+
+class _DecimalInput(_StepInteraction, QDoubleSpinBox):
+    pass
+
+
+def _tr(zh, en):
+    return zh if getattr(config, "LANGUAGE", "en") == "zh" else en
+
+
+def _font(size, weight=400):
+    font = T.ui_font()
+    font.setFamilies([T.FONT_UI] + T.FONT_FB)
+    font.setPixelSize(size)
+    font.setWeight({
+        400: QFont.Weight.Normal, 500: QFont.Weight.Medium,
+        600: QFont.Weight.DemiBold, 700: QFont.Weight.Bold,
+    }.get(weight, QFont.Weight.Normal))
+    return font
+
+
+def _label(text="", size=T.TYPE_BODY, color=None, weight=400, wrap=False):
+    label = QLabel(text)
+    label.setFont(_font(size, weight))
+    # Reserve the CJK/Latin line envelope, independent of the selected text.
+    label.setFixedHeight(math.ceil(size * 1.5))
+    # Reserve the CJK/Latin line envelope, independent of the selected text.
+    label.setFixedHeight(math.ceil(size * 1.5))
+    label.setStyleSheet(
+        f"color:{color or T.C_TEXT}; background:transparent; border:none;"
+    )
+    label.setWordWrap(wrap)
+    if wrap:
+        label.setMinimumWidth(0)
+        label.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Preferred)
+    return label
+
+
+def _button_style():
+    return (
+        f"QPushButton{{background:{T.C_CARD};color:{T.C_TEXT};border:1px solid {T.C_BORDER};"
+        f"border-radius:{T.R_SM}px;padding:5px 10px;font-size:{T.TYPE_CONTROL}px;font-weight:400;}}"
+        f"QPushButton:hover{{background:{T.C_SURFACE};border-color:{T.S_ACTIVE};}}"
+        f"QPushButton:checked{{background:{T.BRAND_SOFT};color:{T.BRAND_MID};border-color:{T.S_ACTIVE};}}"
+        f"QPushButton:focus{{border-color:{T.CONTROL_FOCUS};}}"
+        f"QPushButton:disabled{{color:{T.C_TEXT3};background:{T.C_SURFACE};}}"
+    )
+
+
+class _Switch(QCheckBox):
+    """A painted switch retaining native checkbox keyboard/accessibility behavior."""
+
+    def __init__(self, checked=False, parent=None):
+        super().__init__(parent)
+        self.setFixedSize(40, 26)
+        self.setChecked(checked)
+        self.setCursor(Qt.CursorShape.PointingHandCursor)
+        self.setFocusPolicy(Qt.FocusPolicy.StrongFocus)
+
+    def hitButton(self, point):
+        return self.rect().contains(point)
+
+    def paintEvent(self, event):
+        painter = QPainter(self)
+        painter.setRenderHint(QPainter.RenderHint.Antialiasing)
+        painter.setPen(Qt.PenStyle.NoPen)
+        painter.setBrush(QColor(T.BRAND_MID if self.isChecked() else T.S_ACTIVE))
+        painter.drawRoundedRect(QRectF(0, 3, 40, 20), 10, 10)
+        painter.setBrush(QColor(T.C_CARD))
+        painter.drawEllipse(QRectF(23 if self.isChecked() else 3, 6, 14, 14))
+        if self.hasFocus():
+            painter.setBrush(Qt.BrushStyle.NoBrush)
+            painter.setPen(QPen(QColor(T.BRAND_MID), 1))
+            painter.drawRoundedRect(QRectF(0.5, 0.5, 39, 25), 11, 11)
 
 
 class SettingsScreen(QWidget):
+    soundPreviewFailed = pyqtSignal(str)
+    previewStage = pyqtSignal(int, int)
+    previewFinished = pyqtSignal(int)
     soundToggled = pyqtSignal(bool)
     languageChanged = pyqtSignal()
 
     def __init__(self, parent=None):
         super().__init__(parent)
-        self._cfg = {
-            "alertSec": config.NO_BLINK_ALERT_SEC,
-            "intervalSec": config.ALERT_INTERVAL_SEC,
-            "sensitivity": config.BLINK_RATIO_THRESHOLD,
-            "everyN": config.PROCESS_EVERY_N_FRAMES,
-            "sound": True,
-            "res": f"{config.CAMERA_WIDTH}×{config.CAMERA_HEIGHT}",
-        }
+        self._copy = []
+        self._steppers = []
+        self._preview_token = None
+        self._preview_sequence = False
+        self._preview_stage = 0
+        self._preview_error = False
+        self._res = f"{config.CAMERA_WIDTH}×{config.CAMERA_HEIGHT}"
+        self._advanced_open = False
 
-        root = QHBoxLayout(self)
+        root = QVBoxLayout(self)
         root.setContentsMargins(0, 0, 0, 0)
-        root.setSpacing(28)
+        root.setSpacing(14)
+        self.page_header = QWidget(self)
+        self.page_header.setFixedHeight(36)
+        heading = QHBoxLayout(self.page_header)
+        heading.setContentsMargins(0, 0, 0, 0)
+        heading.setSpacing(10)
+        heading.addWidget(SoftIcon("settings", size=26, glyph_size=15), alignment=Qt.AlignmentFlag.AlignVCenter)
+        title = _label(size=24, weight=600)
+        self._bind(title, "设置", "Settings")
+        heading.addWidget(title)
+        heading.addStretch(1)
+        self._local_note = _label(size=T.TYPE_CAPTION, color=T.C_TEXT2)
+        self._bind(self._local_note, "更改自动保存", "Changes saved automatically")
+        self._local_note.setAlignment(Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter)
+        self._local_note.setAlignment(Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter)
+        heading.addWidget(self._local_note, alignment=Qt.AlignmentFlag.AlignVCenter)
 
-        # 左：表单
-        left = QWidget()
-        lv = QVBoxLayout(left)
-        lv.setContentsMargins(0, 0, 4, 0)
-        lv.setSpacing(0)
-
-        # 提醒阈值
-        self._s1 = _Section(t("section_alert"))
-        self._s_alert = SliderRow(
-            t("slider_alert_lbl"), t("slider_alert_tip"),
-            5, 20, 1, t("unit_s"),
-        )
-        self._s_alert.setValue(self._cfg["alertSec"])
-        self._s_alert.valueChanged.connect(self._on_alert_sec)
-        self._s1.add(self._s_alert)
-        self._s1.addSpacing(16)
-        self._s_int = SliderRow(
-            t("slider_int_lbl"), t("slider_int_tip"),
-            3, 10, 1, t("unit_s"),
-        )
-        self._s_int.setValue(self._cfg["intervalSec"])
-        self._s_int.valueChanged.connect(self._on_int_sec)
-        self._s1.add(self._s_int)
-        lv.addWidget(self._s1)
-
-        # 检测参数
-        self._s2 = _Section(t("section_detect"))
-        self._s_sens = SliderRow(
-            t("slider_sens_lbl"), t("slider_sens_tip"),
-            0.4, 0.8, 0.05, "", decimals=2,
-        )
-        self._s_sens.setValue(self._cfg["sensitivity"])
-        self._s_sens.valueChanged.connect(self._on_sens)
-        self._s2.add(self._s_sens)
-        self._s2.addSpacing(16)
-        self._s_n = SliderRow(
-            t("slider_n_lbl"), t("slider_n_tip"),
-            1, 5, 1, t("unit_frames"),
-        )
-        self._s_n.setValue(self._cfg["everyN"])
-        self._s_n.valueChanged.connect(self._on_n)
-        self._s2.add(self._s_n)
-        lv.addWidget(self._s2)
-
-        # 声音提醒
-        self._s3 = _Section(t("section_sound"))
-        self._tg = ToggleRow(t("sound_enable"), t("sound_enable_tip"),
-                             self._cfg["sound"])
-        self._tg.toggled.connect(self._on_sound)
-        self._s3.add(self._tg)
-        self._s3.addSpacing(6)
-        self._vol_hint = QLabel(t("vol_hint"))
-        self._vol_hint.setStyleSheet(
-            f"color:{T.C_TEXT3}; font-size:11px; background:transparent; border:none;")
-        self._s3.add(self._vol_hint)
-        self._s3.addSpacing(10)
-
-        self._preview_lbl = QLabel(t("preview_label"))
-        self._preview_lbl.setFont(_fnt(13, 500))
-        self._preview_lbl.setStyleSheet(f"color:{T.C_TEXT}; background:transparent; border:none;")
-        self._s3.add(self._preview_lbl)
-        self._s3.addSpacing(8)
-        prow = QHBoxLayout()
-        prow.setSpacing(8)
-        self._preview_btns = []
-        preview_keys = ["preview_l0", "preview_l1", "preview_l2", "preview_l3"]
-        for i, key in enumerate(preview_keys):
-            b = QPushButton(f"▶ {t(key)}")
-            b.setCursor(Qt.CursorShape.PointingHandCursor)
-            b.setStyleSheet(
-                f"QPushButton{{background:{T.C_SURFACE};"
-                f"border:1px solid {T.C_BORDER}; border-radius:7px;"
-                f"color:{T.C_TEXT2}; font-size:12px; padding:8px 0;}}"
-                f"QPushButton:hover{{border-color:{T.BRAND}; color:{T.BRAND};}}"
+        tab_bar = QFrame()
+        tab_bar.setObjectName("SettingsTabs")
+        tab_bar.setStyleSheet(f"QFrame#SettingsTabs{{background:{T.C_SURFACE};border:none;border-radius:12px;}}")
+        tab_layout = QHBoxLayout(tab_bar)
+        tab_layout.setContentsMargins(4, 4, 4, 4)
+        tab_layout.setSpacing(4)
+        self._tabs = []
+        self._tab_stack = QStackedWidget()
+        self._tab_stack.setStyleSheet("QStackedWidget{background:transparent;border:none;}")
+        for index, (zh, en) in enumerate((("提醒", "Reminders"), ("设备与语言", "Device and language"), ("高级检测", "Advanced detection"))):
+            button = QPushButton()
+            button.setCheckable(True)
+            button.setCursor(Qt.CursorShape.PointingHandCursor)
+            button.setFixedHeight(36)
+            button.setIcon(icon(("bell", "camera", "settings")[index], size=16))
+            button.setIconSize(QSize(16, 16))
+            button.setStyleSheet(
+                f"QPushButton{{background:transparent;color:{T.C_TEXT2};border:1px solid transparent;"
+                f"border-radius:{T.R_SM}px;padding:5px 12px;font-size:{T.TYPE_CONTROL}px;font-weight:500;text-align:center;}}"
+                f"QPushButton:hover{{background:{T.BRAND_SOFT};color:{T.BRAND_MID};}}"
+                f"QPushButton:checked{{background:{T.S_ACTIVE};color:{T.BRAND_MID};}}"
+                f"QPushButton:focus{{border-color:{T.CONTROL_FOCUS};}}"
             )
-            b.clicked.connect(lambda _c, lvl=i: self._preview_alert(lvl))
-            prow.addWidget(b, 1)
-            self._preview_btns.append((b, key))
-        self._s3.addLayout(prow)
-        lv.addWidget(self._s3)
+            self._bind(button, zh, en, fixed_width=False)
+            button.setSizePolicy(QSizePolicy.Policy.Ignored, QSizePolicy.Policy.Fixed)
+            button.setMinimumWidth(0)
+            button.clicked.connect(lambda _checked=False, i=index: self._show_tab(i))
+            self._tabs.append(button)
+            tab_layout.addWidget(button, 1)
+        root.addWidget(tab_bar)
+        self._form_card = Card(padding=(18, 18, 18, 18))
+        self._form_card.setObjectName("SettingsForm")
+        self._form_card.setStyleSheet(
+            f"QFrame#SettingsForm{{background:{T.C_CARD};border:none;"
+            f"border-radius:{T.R_CARD}px;}}"
+        )
+        self._form_card.layout().addWidget(self._tab_stack, 1)
+        root.addWidget(self._form_card, 1)
+        self._advanced_button = self._tabs[2]
 
-        # 摄像头
-        self._s4 = _Section(t("section_camera"))
-        self._cam_hint = QLabel(t("cam_hint"))
-        self._cam_hint.setStyleSheet(f"color:{T.C_TEXT3}; font-size:11px; background:transparent; border:none;")
-        self._s4.add(self._cam_hint)
-        self._s4.addSpacing(12)
-        self._resl = QLabel(t("cam_res"))
-        self._resl.setFont(_fnt(13, 500))
-        self._resl.setStyleSheet(f"color:{T.C_TEXT}; background:transparent; border:none;")
-        self._s4.add(self._resl)
-        self._s4.addSpacing(8)
-        res_row = QHBoxLayout()
-        res_row.setSpacing(8)
+        reminders = QWidget()
+        reminder_layout = QVBoxLayout(reminders)
+        reminder_layout.setContentsMargins(0, 0, 0, 0)
+        reminder_layout.setSpacing(12)
+        self._wait = self._int_input(config.NO_BLINK_ALERT_SEC, 5, 60)
+        self._setting_row(reminder_layout, "首次提醒", "First reminder",
+                          "连续未眨眼多久后开始提醒", "Time without a blink before reminders begin", self._wait)
+        self._divider(reminder_layout)
+        self._interval = self._int_input(config.ALERT_INTERVAL_SEC, 3, 30)
+        self._setting_row(reminder_layout, "后续提醒间隔", "Repeat interval",
+                          "仍未眨眼时，逐档加强提示", "Increase the level if no blink is detected", self._interval)
+        self._divider(reminder_layout)
+        self._sound = _Switch(getattr(config, "SOUND_ENABLED", True))
+        self._setting_row(reminder_layout, "声音提醒", "Reminder sounds",
+                          "关闭声音后，屏幕提示继续", "Screen reminders stay on when sound is off", self._sound)
+        # One persistent sound family; preview buttons below play its three levels.
+        self._theme_buttons = {}
+        theme_row = QHBoxLayout()
+        theme_row.setSpacing(8)
+        for key, zh, en in (("polite", "Polite", "Polite"), ("sharp", "Sharp", "Sharp"), ("original", "Ding", "Ding"), ("blip", "Blip", "Blip")):
+            button = self._button(checkable=True)
+            button.setFixedHeight(38)
+            self._bind(button, zh, en, fixed_width=False)
+            button.setMinimumWidth(0)
+            button.setMaximumWidth(16777215)
+            button.setSizePolicy(QSizePolicy.Policy.Ignored, QSizePolicy.Policy.Fixed)
+            button.clicked.connect(lambda checked=False, value=key: self._select_sound(value))
+            self._theme_buttons[key] = button
+            theme_row.addWidget(button, 1)
+        reminder_layout.addLayout(theme_row)
+        self.soundPreviewFailed.connect(self._preview_failed)
+        audio_row = QHBoxLayout()
+        audio_row.setSpacing(6)
+        self._audio_note = _label(size=T.TYPE_CAPTION, color=T.C_TEXT2, wrap=True)
+        self._bind(self._audio_note, "三档依次试听 · 档位间停顿 0.8 秒", "Three stages · 0.8 s between cues")
+        audio_row.addWidget(self._audio_note, 1)
+        self._preview_button = self._button()
+        self._preview_button.setFixedWidth(146)
+        self._preview_button.clicked.connect(self._toggle_preview)
+        audio_row.addWidget(self._preview_button)
+        self.previewStage.connect(self._preview_progress)
+        self.previewFinished.connect(self._preview_finished)
+        reminder_layout.addLayout(audio_row)
+        self._divider(reminder_layout)
+        rule_title = _label(size=13, weight=500)
+        self._bind(rule_title, "当前提醒节奏", "Current reminder rhythm")
+        reminder_layout.addWidget(rule_title)
+        self._summary = _label(size=T.TYPE_CAPTION, color=T.C_TEXT2, wrap=True)
+        reminder_layout.addWidget(self._summary)
+        stages = QHBoxLayout()
+        stages.setSpacing(0)
+        self._stage_names, self._stage_times = [], []
+        for level in range(3):
+            cell = QVBoxLayout()
+            cell.setSpacing(4)
+            name = _label(size=T.TYPE_CAPTION, color=T.C_TEXT2)
+            timing = _label(size=18, weight=500)
+            cell.addWidget(name)
+            cell.addWidget(timing)
+            self._stage_names.append(name)
+            self._stage_times.append(timing)
+            stages.addLayout(cell, 1)
+        reminder_layout.addLayout(stages)
+        self._summary_sound = _label(size=T.TYPE_CAPTION, color=T.C_TEXT2, wrap=True)
+        reminder_layout.addWidget(self._summary_sound)
+        reminder_layout.addStretch(1)
+        self._tab_stack.addWidget(reminders)
+
+        device = QWidget()
+        device_layout = QVBoxLayout(device)
+        device_layout.setContentsMargins(0, 0, 0, 0)
+        device_layout.setSpacing(18)
+        resolution_choices = QWidget()
+        resolution_row = QHBoxLayout(resolution_choices)
+        resolution_row.setContentsMargins(0, 0, 0, 0)
+        resolution_row.setSpacing(6)
         self._res_buttons = {}
-        for r in ("640×480", "1280×720", "1920×1080"):
-            b = QPushButton(r)
-            b.setCursor(Qt.CursorShape.PointingHandCursor)
-            b.setCheckable(True)
-            b.setChecked(r == self._cfg["res"])
-            b.clicked.connect(lambda _c, rr=r: self._set_res(rr))
-            self._res_buttons[r] = b
-            res_row.addWidget(b)
-        res_row.addStretch(1)
-        self._s4.addLayout(res_row)
-        self._refresh_res_btns()
-        lv.addWidget(self._s4)
-
-        # 语言
-        self._s5 = _Section(t("section_language"))
-        lang_row = QHBoxLayout()
-        lang_row.setSpacing(8)
+        resolutions = ["640×480", "1280×720", "1920×1080"]
+        if self._res not in resolutions:
+            resolutions.append(self._res)
+        for resolution in resolutions:
+            button = self._button(resolution, checkable=True)
+            button.clicked.connect(lambda checked=False, r=resolution: self._set_res(r))
+            self._res_buttons[resolution] = button
+            resolution_row.addWidget(button)
+        self._setting_row(device_layout, "摄像头分辨率", "Camera resolution",
+                          "下次开启摄像头时生效", "Applies next time you start the camera", resolution_choices)
+        self._restart = _label()
+        self._restart.setParent(self)
+        self._restart.hide()
+        self._divider(device_layout)
+        language_choices = QWidget()
+        language_row = QHBoxLayout(language_choices)
+        language_row.setContentsMargins(0, 0, 0, 0)
+        language_row.setSpacing(6)
         self._lang_buttons = {}
-        for code, key in [("zh", "lang_zh"), ("en", "lang_en")]:
-            b = QPushButton(t(key))
-            b.setCursor(Qt.CursorShape.PointingHandCursor)
-            b.setCheckable(True)
-            b.setChecked(getattr(config, "LANGUAGE", "zh") == code)
-            b.clicked.connect(lambda _c, lc=code: self._set_language(lc))
-            self._lang_buttons[code] = b
-            lang_row.addWidget(b)
-        lang_row.addStretch(1)
-        self._s5.addLayout(lang_row)
-        self._refresh_lang_btns()
-        lv.addWidget(self._s5)
+        for language, name in (("zh", "简体中文"), ("en", "English")):
+            button = self._button(name, checkable=True)
+            button.clicked.connect(lambda checked=False, c=language: self._set_language(c))
+            self._lang_buttons[language] = button
+            language_row.addWidget(button)
+        self._setting_row(device_layout, "界面语言", "Interface language",
+                          "选择后立即切换", "Changes apply immediately", language_choices)
+        self._divider(device_layout)
+        privacy_title = _label(size=13, weight=500)
+        self._bind(privacy_title, "只在本机处理", "Processed on this device")
+        device_layout.addWidget(privacy_title)
+        privacy_note = _label(size=T.TYPE_CAPTION, color=T.C_TEXT2, wrap=True)
+        self._bind(privacy_note, "摄像头画面用于实时检测。历史记录保存眨眼数据，不保存视频。",
+                   "Camera frames are used for live detection. History stores blink data, not video.")
+        device_layout.addWidget(privacy_note)
+        device_layout.addStretch(1)
+        self._about_panel = QFrame()
+        self._about_panel.setObjectName("AboutDryless")
+        self._about_panel.setStyleSheet(
+            f"QFrame#AboutDryless{{background:{T.C_SURFACE};border:none;border-radius:12px;}}")
+        about_layout = QVBoxLayout(self._about_panel)
+        about_layout.setContentsMargins(16, 14, 16, 14)
+        about_layout.setSpacing(12)
+        about_heading = QHBoxLayout()
+        about_title = _label(size=T.TYPE_BODY, weight=500)
+        self._bind(about_title, "关于 Dryless", "About Dryless")
+        about_heading.addWidget(about_title)
+        about_heading.addStretch(1)
+        self._version_label = _label("v" + VERSION, size=T.TYPE_CAPTION, color=T.C_TEXT2)
+        about_heading.addWidget(self._version_label)
+        about_layout.addLayout(about_heading)
+        about_actions = QHBoxLayout()
+        about_actions.setSpacing(8)
+        self._project_link = self._button()
+        self._feedback_link = self._button()
+        for button, zh, en, kind, callback in (
+            (self._project_link, "项目主页", "Project on GitHub", "github", open_project),
+            (self._feedback_link, "问题反馈", "Report an issue", "feedback", open_issues),
+        ):
+            self._bind(button, zh, en, fixed_width=False)
+            button.setIcon(icon(kind, 16))
+            button.setIconSize(QSize(16, 16))
+            button.setSizePolicy(QSizePolicy.Policy.Ignored, QSizePolicy.Policy.Fixed)
+            button.setMinimumWidth(0)
+            button.clicked.connect(lambda checked=False, action=callback: self._open_project_link(action))
+            about_actions.addWidget(button, 1)
+        about_layout.addLayout(about_actions)
+        self._link_error = _label(size=12, color=T.C_TEXT2)
+        self._link_error.setSizePolicy(QSizePolicy.Policy.Ignored, QSizePolicy.Policy.Fixed)
+        about_layout.addWidget(self._link_error)
+        device_layout.addWidget(self._about_panel)
+        self._tab_stack.addWidget(device)
 
-        lv.addStretch(1)
-        root.addWidget(left, 1)
+        self._advanced_body = QWidget()
+        advanced_layout = QVBoxLayout(self._advanced_body)
+        advanced_layout.setContentsMargins(0, 0, 0, 0)
+        advanced_layout.setSpacing(18)
+        advanced_note = _label(size=T.TYPE_CAPTION, color=T.C_TEXT2, wrap=True)
+        self._bind(advanced_note, "通常无需调整。这里保留你当前使用的检测参数。",
+                   "Changes are usually unnecessary. Your current detection values are preserved.")
+        advanced_layout.addWidget(advanced_note)
+        self._sensitivity = _DecimalInput()
+        self._sensitivity.setDecimals(2)
+        self._sensitivity.setRange(min(0.4, float(config.BLINK_RATIO_THRESHOLD)), max(0.8, float(config.BLINK_RATIO_THRESHOLD)))
+        self._sensitivity.setSingleStep(0.05)
+        self._sensitivity.setValue(config.BLINK_RATIO_THRESHOLD)
+        self._style_input(self._sensitivity)
+        self._setting_row(advanced_layout, "闭眼比例阈值", "Eye-closure threshold",
+                          "用于判断眼睛是否闭合", "The ratio used to detect eye closure", self._sensitivity)
+        self._divider(advanced_layout)
+        self._frames = self._int_input(config.PROCESS_EVERY_N_FRAMES, 1, 5)
+        self._setting_row(advanced_layout, "检测帧间隔", "Frame interval",
+                          "每隔多少帧执行一次检测", "Run detection once every N frames", self._frames)
+        advanced_layout.addStretch(1)
+        self._tab_stack.addWidget(self._advanced_body)
 
-        # 右：代码预览
-        right = QWidget()
-        right.setFixedWidth(300)
-        rv = QVBoxLayout(right)
-        rv.setContentsMargins(0, 0, 0, 0)
-        rv.setSpacing(10)
+        # Connect only after restoring values: opening settings never rewrites them.
+        self._wait.valueChanged.connect(self._on_wait)
+        self._interval.valueChanged.connect(self._on_interval)
+        self._sound.toggled.connect(self._on_sound)
+        self._sensitivity.valueChanged.connect(self._on_sensitivity)
+        self._frames.valueChanged.connect(self._on_frames)
+        self._advanced_button.toggled.connect(self._toggle_advanced)
+        self._show_tab(0)
+        self.retranslate()
 
-        self._config_lbl = QLabel(t("config_label"))
-        self._config_lbl.setStyleSheet(
-            f"color:{T.C_TEXT3}; font-size:11px; font-weight:500; letter-spacing:1px; background:transparent; border:none;")
-        rv.addWidget(self._config_lbl)
+    def _show_tab(self, index):
+        if index != 0:
+            self._stop_preview()
+        self._tab_stack.setCurrentIndex(index)
+        self._advanced_open = index == 2
+        for tab_index, button in enumerate(self._tabs):
+            blocked = button.blockSignals(True)
+            button.setChecked(index == tab_index)
+            button.blockSignals(blocked)
 
-        self._code = QLabel()
-        self._code.setStyleSheet(
-            "background:#1A1816; border-radius:10px; padding:16px 18px;"
-            "color:#8A9A86; font-family:Consolas,'Cascadia Code',monospace;"
-            "font-size:12px; line-height:2;"
+
+    def _fix_button_width(self, button, labels):
+        """Measure both translations once; language changes never resize controls."""
+        previous = button.text()
+        button.ensurePolished()
+        widths = []
+        for label in labels:
+            button.setText(label)
+            widths.append(button.sizeHint().width())
+        button.setText(previous)
+        button.setFixedWidth(max(widths) + 2)
+
+    def _fix_button_width(self, button, labels):
+        """Measure both translations once; language changes never resize controls."""
+        previous = button.text()
+        button.ensurePolished()
+        widths = []
+        for label in labels:
+            button.setText(label)
+            widths.append(button.sizeHint().width())
+        button.setText(previous)
+        button.setFixedWidth(max(widths) + 2)
+
+    def _bind(self, widget, zh, en, fixed_width=True):
+        self._copy.append((widget, zh, en))
+        widget.setText(_tr(zh, en))
+        if isinstance(widget, QPushButton) and fixed_width:
+            self._fix_button_width(widget, (zh, en))
+        elif isinstance(widget, QLabel) and not widget.wordWrap():
+            width = max(widget.fontMetrics().horizontalAdvance(value) for value in (zh, en))
+            widget.setFixedWidth(width + 2)
+
+    def _button(self, text="", checkable=False):
+        button = QPushButton(text)
+        button.setCheckable(checkable)
+        button.setCursor(Qt.CursorShape.PointingHandCursor)
+        button.setStyleSheet(_button_style())
+        button.setFixedHeight(32)
+        if text:
+            self._fix_button_width(button, (text,))
+        return button
+
+    def _card(self, zh, en, zh_hint, en_hint):
+        card = Card(padding=(0, 0, 0, 0))
+        layout = card.layout()
+        layout.setSpacing(8)
+        title = _label(size=17, weight=600)
+        self._bind(title, zh, en)
+        layout.addWidget(title)
+        hint = _label(size=T.TYPE_CAPTION, color=T.C_TEXT2, wrap=True)
+        self._bind(hint, zh_hint, en_hint)
+        layout.addWidget(hint)
+        return card, layout
+
+    def _setting_row(self, layout, zh, en, zh_hint, en_hint, control):
+        row = QHBoxLayout()
+        row.setSpacing(16)
+        copy = QVBoxLayout()
+        copy.setSpacing(3)
+        title = _label(size=T.TYPE_BODY, weight=500, wrap=True)
+        self._bind(title, zh, en)
+        copy.addWidget(title)
+        hint = _label(size=T.TYPE_CAPTION, color=T.C_TEXT2, wrap=True)
+        self._bind(hint, zh_hint, en_hint)
+        copy.addWidget(hint)
+        row.addLayout(copy, 1)
+        field = self._stepper(control) if isinstance(control, (QSpinBox, QDoubleSpinBox)) else control
+        row.addWidget(field, alignment=Qt.AlignmentFlag.AlignVCenter)
+        layout.addLayout(row)
+
+    def _divider(self, layout):
+        line = QFrame()
+        line.setFixedHeight(1)
+        line.setStyleSheet(f"background:{T.C_BORDER}; border:none;")
+        layout.addWidget(line)
+
+    def _style_input(self, widget):
+        widget.setLineEdit(_CaretEditor(widget))
+        widget.setFixedWidth(76)
+        widget.setFixedHeight(34)
+        widget.setButtonSymbols(QAbstractSpinBox.ButtonSymbols.NoButtons)
+        widget.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        widget.setKeyboardTracking(False)
+        # Numeric fields deliberately use caret-only editing in this UI.
+        # This also clears native spinbox selection on focus, drag and Ctrl+A.
+        editor = widget.lineEdit()
+        editor.selectionChanged.connect(editor.deselect)
+        widget.setCorrectionMode(QAbstractSpinBox.CorrectionMode.CorrectToNearestValue)
+        widget.setStyleSheet(
+            f"QSpinBox,QDoubleSpinBox{{background:transparent; color:{T.C_TEXT};"
+            f"border:none; border-radius:{T.R_SM}px; padding:3px 0; font-size:13px; font-weight:500;}}"
+            f"QSpinBox,QDoubleSpinBox{{selection-background-color:{T.BRAND_SOFT};selection-color:{T.C_TEXT};}}"
         )
-        self._code.setTextFormat(Qt.TextFormat.RichText)
-        self._code.setWordWrap(False)
-        rv.addWidget(self._code)
 
-        self._hint1 = QLabel()
-        self._hint1.setStyleSheet(
-            f"background:{T.BRAND_SOFT}; color:{T.BRAND_MID};"
-            f"border:1px solid rgba(74,158,128,60);"
-            f"border-radius:8px; padding:11px 14px;"
-            f"font-size:12.5px; line-height:1.6;"
+    def _stepper(self, control):
+        """Keep the editable spinbox API inside a compact native-button stepper."""
+        shell = QFrame()
+        shell.setObjectName("SettingStepper")
+        shell.setFixedSize(134, 36)
+        shell.setStyleSheet(
+            f"QFrame#SettingStepper{{background:{T.C_SURFACE}; border:1px solid {T.C_BORDER};"
+            f"border-radius:{T.R_SM}px;}}"
+            f"QFrame#SettingStepper:hover{{border-color:{T.S_ACTIVE};}}"
         )
-        self._hint1.setWordWrap(True)
-        rv.addWidget(self._hint1)
+        layout = QHBoxLayout(shell)
+        layout.setContentsMargins(1, 1, 1, 1)
+        layout.setSpacing(0)
+        decrement = QPushButton("−")
+        increment = QPushButton("+")
+        for button in (decrement, increment):
+            button.setFixedSize(28, 34)
+            button.setCursor(Qt.CursorShape.PointingHandCursor)
+            button.setAutoRepeat(True)
+            button.setAutoRepeatDelay(400)
+            button.setAutoRepeatInterval(100)
+            button.setStyleSheet(
+                f"QPushButton{{background:transparent; color:{T.C_TEXT2}; border:none;"
+                f"border-radius:{T.R_SM - 2}px; padding:0; font-size:17px; font-weight:500;}}"
+                f"QPushButton:hover{{background:transparent;color:{T.BRAND_MID};}}"
+                f"QPushButton:focus{{border:1px solid {T.CONTROL_FOCUS};}}"
+                f"QPushButton:pressed{{background:{T.C_BORDER};}}"
+                f"QPushButton:disabled{{color:{T.C_BORDER};}}"
+            )
+        decrement.clicked.connect(control.stepDown)
+        increment.clicked.connect(control.stepUp)
+        layout.addWidget(decrement)
+        layout.addWidget(control)
+        layout.addWidget(increment)
 
-        self._hint2 = QLabel()
-        self._hint2.setStyleSheet(
-            f"background:{T.C_BG}; color:{T.C_TEXT2};"
-            f"border:1px solid {T.C_BORDER};"
-            f"border-radius:8px; padding:11px 14px;"
-            f"font-size:12px; line-height:1.6;"
-        )
-        self._hint2.setWordWrap(True)
-        rv.addWidget(self._hint2)
+        def refresh_limits(*_):
+            decrement.setEnabled(control.value() > control.minimum())
+            increment.setEnabled(control.value() < control.maximum())
 
-        rv.addStretch(1)
-        root.addWidget(right)
+        control.valueChanged.connect(refresh_limits)
+        refresh_limits()
+        self._steppers.append((control, decrement, increment))
+        return shell
 
+    def _int_input(self, value, minimum, maximum):
+        widget = _IntegerInput()
+        widget.setRange(min(minimum, int(value)), max(maximum, int(value)))
+        widget.setValue(int(value))
+        self._style_input(widget)
+        return widget
+
+    def _on_wait(self, value):
+        config.NO_BLINK_ALERT_SEC = int(value)
+        save_config()
         self._refresh_preview()
 
-    # ── callbacks ───────────────────────────────────
-    def _set_cfg(self, k, v):
-        self._cfg[k] = v
+    def _on_interval(self, value):
+        config.ALERT_INTERVAL_SEC = int(value)
+        save_config()
         self._refresh_preview()
 
-    def _on_alert_sec(self, v):
-        config.NO_BLINK_ALERT_SEC = int(v)
-        self._set_cfg("alertSec", int(v))
+    def _on_sensitivity(self, value):
+        config.BLINK_RATIO_THRESHOLD = float(value)
         save_config()
 
-    def _on_int_sec(self, v):
-        config.ALERT_INTERVAL_SEC = int(v)
-        self._set_cfg("intervalSec", int(v))
+    def _on_frames(self, value):
+        config.PROCESS_EVERY_N_FRAMES = int(value)
         save_config()
 
-    def _on_sens(self, v):
-        config.BLINK_RATIO_THRESHOLD = float(v)
-        self._set_cfg("sensitivity", round(float(v), 2))
+    def _on_sound(self, enabled):
+        config.SOUND_ENABLED = bool(enabled)
         save_config()
+        self._refresh_preview()
+        self.soundToggled.emit(bool(enabled))
 
-    def _on_n(self, v):
-        config.PROCESS_EVERY_N_FRAMES = int(v)
-        self._set_cfg("everyN", int(v))
-        save_config()
-
-    def _on_sound(self, v):
-        self._set_cfg("sound", bool(v))
-        self.soundToggled.emit(bool(v))
-
-    def _set_res(self, r):
-        self._cfg["res"] = r
-        try:
-            w, h = r.split("×")
-            config.CAMERA_WIDTH = int(w)
-            config.CAMERA_HEIGHT = int(h)
-            save_config()
-        except Exception:
-            pass
-        self._refresh_res_btns()
+    def setSoundEnabled(self, enabled):
+        """Synchronize external sound changes without emitting or saving again."""
+        previous = self._sound.blockSignals(True)
+        self._sound.setChecked(bool(enabled))
+        self._sound.blockSignals(previous)
         self._refresh_preview()
 
-    def _set_language(self, lang_code: str):
-        config.LANGUAGE = lang_code
+    def _set_res(self, resolution):
+        width, height = resolution.split("×")
+        config.CAMERA_WIDTH, config.CAMERA_HEIGHT = int(width), int(height)
+        self._res = resolution
         save_config()
-        self._refresh_lang_btns()
+        self._refresh_choices()
+
+    def _open_project_link(self, action):
+        self._link_error.setText("" if action() else _tr(
+            "无法打开浏览器，请重试。", "Could not open your browser. Try again."))
+
+    def _set_language(self, language):
+        if language == getattr(config, "LANGUAGE", "en"):
+            self._refresh_choices()
+            return
+        config.LANGUAGE = language
+        save_config()
+        self.retranslate()
         self.languageChanged.emit()
 
-    def _refresh_res_btns(self):
-        for r, b in self._res_buttons.items():
-            active = r == self._cfg["res"]
-            b.setChecked(active)
-            if active:
-                b.setStyleSheet(
-                    f"QPushButton{{background:{T.BRAND_SOFT};"
-                    f"color:{T.BRAND_MID}; border:1.5px solid {T.BRAND};"
-                    f"border-radius:7px; padding:6px 14px; font-size:13px;}}"
-                )
-            else:
-                b.setStyleSheet(
-                    f"QPushButton{{background:{T.C_SURFACE};"
-                    f"color:{T.C_TEXT2}; border:1px solid {T.C_BORDER};"
-                    f"border-radius:7px; padding:7px 14px; font-size:13px;}}"
-                    f"QPushButton:hover{{border-color:{T.BRAND};}}"
-                )
+    def _refresh_choices(self):
+        for theme, button in self._theme_buttons.items():
+            chosen = theme == config.SOUND_THEME
+            button.setChecked(chosen)
+            button.setAccessibleDescription(_tr("当前提示音" if chosen else "选择此提示音", "Selected sound" if chosen else "Choose this sound"))
+        for resolution, button in self._res_buttons.items():
+            button.setChecked(resolution == self._res)
+        for language, button in self._lang_buttons.items():
+            button.setChecked(language == getattr(config, "LANGUAGE", "en"))
 
-    def _refresh_lang_btns(self):
-        current = getattr(config, "LANGUAGE", "zh")
-        for code, b in self._lang_buttons.items():
-            active = code == current
-            b.setChecked(active)
-            if active:
-                b.setStyleSheet(
-                    f"QPushButton{{background:{T.BRAND_SOFT};"
-                    f"color:{T.BRAND_MID}; border:1.5px solid {T.BRAND};"
-                    f"border-radius:7px; padding:6px 14px; font-size:13px;}}"
-                )
-            else:
-                b.setStyleSheet(
-                    f"QPushButton{{background:{T.C_SURFACE};"
-                    f"color:{T.C_TEXT2}; border:1px solid {T.C_BORDER};"
-                    f"border-radius:7px; padding:7px 14px; font-size:13px;}}"
-                    f"QPushButton:hover{{border-color:{T.BRAND};}}"
-                )
+    def _toggle_advanced(self, expanded):
+        if expanded:
+            self._show_tab(2)
+        elif self._tab_stack.currentIndex() == 2:
+            self._show_tab(0)
 
-    def _preview_alert(self, level: int):
+    def _update_advanced_label(self):
+        self._advanced_button.setText(_tr("高级检测", "Advanced detection"))
+        self._advanced_button.setAccessibleDescription(_tr("切换到高级检测设置", "Show advanced detection settings"))
+
+    def _select_sound(self, theme):
+        self._stop_preview()
+        config.SOUND_THEME = theme
+        save_config()
+        self._refresh_choices()
+        self._start_preview(sequence=False)
+
+    def _preview_failed(self, message):
+        self._preview_error = True
+        self._audio_note.setText(_tr("试听失败，请检查声音输出", "Preview failed. Check audio output"))
+        self._audio_note.setAccessibleDescription(message)
+
+    def _toggle_preview(self):
+        if self._preview_token is not None and self._preview_sequence:
+            self._stop_preview()
+            return
+        self._start_preview(sequence=True)
+
+    def _start_preview(self, sequence):
+        from alert import AUDIO, sound_file
+        self._stop_preview()
+        self._preview_error = False
+        self._preview_stage = 0
+        self._preview_sequence = sequence
+        self._audio_note.setAccessibleDescription("")
         try:
-            from alert import AlertManager
-            am = AlertManager()
-            am._play_alert(level)
-        except Exception:
-            pass
+            self._preview_token = AUDIO.play(
+                [sound_file(i) for i in (range(3) if sequence else (0,))], self, priority=2,
+                on_stage=self.previewStage.emit, on_finished=self.previewFinished.emit,
+                on_error=self.soundPreviewFailed.emit)
+            self._refresh_audio_copy()
+            if self._preview_token is None:
+                self._audio_note.setText(_tr("微休息提示结束后可试听", "Preview after the break cue ends"))
+        except Exception as error:
+            self._preview_sequence = False
+            self._preview_failed(str(error))
+
+    def _preview_progress(self, token, stage):
+        if token == self._preview_token and self._preview_sequence:
+            self._preview_stage = stage
+            self._audio_note.setText(_tr(
+                ("首次提示", "第二次提示", "第三次提示")[stage],
+                ("First reminder", "Second reminder", "Third reminder")[stage]))
+
+    def _preview_finished(self, token):
+        if token == self._preview_token:
+            self._preview_token = None
+            self._preview_sequence = False
+            self._refresh_audio_copy()
+
+    def _stop_preview(self):
+        from alert import AUDIO
+        self._preview_token = None
+        self._preview_sequence = False
+        AUDIO.stop(self)
+        self._refresh_audio_copy()
+
+    def _refresh_audio_copy(self):
+        self._preview_button.setText(_tr("停止试听", "Stop preview") if self._preview_token and self._preview_sequence else _tr("试听三档", "Play all 3"))
+        if self._preview_error:
+            return
+        if self._preview_token and self._preview_sequence:
+            self._preview_progress(self._preview_token, self._preview_stage)
+        else:
+            self._audio_note.setText(_tr("三档依次试听 · 档位间停顿 0.8 秒", "Three stages · 0.8 s between cues"))
+
+    def hideEvent(self, event):
+        self._stop_preview()
+        super().hideEvent(event)
 
     def _refresh_preview(self):
-        c = self._cfg
-        try:
-            w, h = c["res"].split("×")
-        except Exception:
-            w, h = "640", "480"
-
-        lines = [
-            f'<span style="color:#4A5A48">{t("code_comment_alert")}</span>',
-            f'NO_BLINK_ALERT_SEC <span style="color:#D0D0CE">=</span> '
-            f'<span style="color:#7ABA86">{c["alertSec"]}</span>',
-            f'ALERT_INTERVAL_SEC <span style="color:#D0D0CE">=</span> '
-            f'<span style="color:#7ABA86">{c["intervalSec"]}</span>',
-            '',
-            f'<span style="color:#4A5A48">{t("code_comment_detect")}</span>',
-            f'BLINK_RATIO_THRESHOLD <span style="color:#D0D0CE">=</span> '
-            f'<span style="color:#7ABA86">{c["sensitivity"]}</span>',
-            f'PROCESS_EVERY_N_FRAMES <span style="color:#D0D0CE">=</span> '
-            f'<span style="color:#7ABA86">{c["everyN"]}</span>',
-            '',
-            f'<span style="color:#4A5A48">{t("code_comment_camera")}</span>',
-            f'CAMERA_INDEX <span style="color:#D0D0CE">=</span> '
-            f'<span style="color:#7ABA86">0</span>',
-            f'CAMERA_WIDTH <span style="color:#D0D0CE">=</span> '
-            f'<span style="color:#7ABA86">{w}</span>',
-            f'CAMERA_HEIGHT <span style="color:#D0D0CE">=</span> '
-            f'<span style="color:#7ABA86">{h}</span>',
-        ]
-        self._code.setText("<br>".join(lines))
-
-        top_lvl = c["alertSec"] + c["intervalSec"] * 3
-        self._hint1.setText(t("hint1_fmt", alert=c["alertSec"], intv=c["intervalSec"], top=top_lvl))
-        pct = int(round((1 - c["sensitivity"]) * 100))
-        self._hint2.setText(t("hint2_fmt", sens=c["sensitivity"], pct=pct))
+        first = int(config.NO_BLINK_ALERT_SEC)
+        interval = int(config.ALERT_INTERVAL_SEC)
+        self._summary.setText(_tr(
+            f"连续 {first} 秒未眨眼时开始提醒，每隔 {interval} 秒升级，第三档后保持。",
+            f"Start after {first}s; advance every {interval}s, then repeat stage 3.",
+        ))
+        stages = (
+            ("轻声提醒", "Gentle"),
+            ("再次提醒", "A little clearer"),
+            ("加强提醒", "More noticeable"),
+        )
+        for level, (name, timing) in enumerate(zip(self._stage_names, self._stage_times)):
+            name.setText(_tr(*stages[level]))
+            seconds = first + level * interval
+            timing.setText(f"{seconds}{'+' if level == 2 else ''}" + _tr(" 秒", " s"))
+        self._summary_sound.setText(
+            _tr("声音与屏幕提示均已开启", "Sound and screen reminders are on")
+            if self._sound.isChecked()
+            else _tr("声音已关闭 · 屏幕提示保留", "Sound is off · screen reminders remain on")
+        )
 
     def retranslate(self):
-        """Update all labels to current language."""
-        self._s1.setTitle(t("section_alert"))
-        self._s2.setTitle(t("section_detect"))
-        self._s3.setTitle(t("section_sound"))
-        self._s4.setTitle(t("section_camera"))
-        self._s5.setTitle(t("section_language"))
-        self._s_alert.setTexts(t("slider_alert_lbl"), t("slider_alert_tip"))
-        self._s_int.setTexts(t("slider_int_lbl"), t("slider_int_tip"))
-        self._s_sens.setTexts(t("slider_sens_lbl"), t("slider_sens_tip"))
-        self._s_n.setTexts(t("slider_n_lbl"), t("slider_n_tip"))
-        self._tg.setTexts(t("sound_enable"), t("sound_enable_tip"))
-        self._vol_hint.setText(t("vol_hint"))
-        self._preview_lbl.setText(t("preview_label"))
-        for b, key in self._preview_btns:
-            b.setText(f"▶ {t(key)}")
-        self._cam_hint.setText(t("cam_hint"))
-        self._resl.setText(t("cam_res"))
-        self._config_lbl.setText(t("config_label"))
-        self._refresh_lang_btns()
+        """Refresh all local copy without rebuilding controls or changing values."""
+        for widget, zh, en in self._copy:
+            widget.setText(_tr(zh, en))
+        self._wait.setSuffix(_tr(" 秒", " s"))
+        self._interval.setSuffix(_tr(" 秒", " s"))
+        self._frames.setSuffix(_tr(" 帧", " frames"))
+        for control, zh, en in (
+            (self._wait, "首次提醒等待秒数", "Seconds before the first reminder"),
+            (self._interval, "后续提醒间隔秒数", "Seconds between reminder levels"),
+            (self._sound, "声音提醒", "Reminder sounds"),
+            (self._sensitivity, "闭眼比例阈值", "Eye-closure ratio threshold"),
+            (self._frames, "检测帧间隔", "Detection frame interval"),
+        ):
+            control.setAccessibleName(_tr(zh, en))
+        for control, decrement, increment in self._steppers:
+            field_name = control.accessibleName()
+            decrement.setAccessibleName(_tr("减少", "Decrease ") + field_name)
+            increment.setAccessibleName(_tr("增加", "Increase ") + field_name)
+            decrement.setAccessibleDescription(decrement.accessibleName())
+            increment.setAccessibleDescription(increment.accessibleName())
+        self._refresh_audio_copy()
+        if self._preview_error:
+            self._audio_note.setText(_tr(
+                "声音试听不可用，请检查应用内的声音文件。",
+                "Sound preview is unavailable. Check the bundled sound files.",
+            ))
+        self._refresh_choices()
+        self._update_advanced_label()
         self._refresh_preview()

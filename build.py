@@ -1,96 +1,66 @@
-"""
-Build script for Dryless.
-Run with: `python build.py`
-Output: `dist/Dryless.exe` as a single-file executable.
-"""
+"""Build a versioned Windows portable EXE without deleting previous builds."""
+import json
 import os
-import sys
-import shutil
+from pathlib import Path
+import platform
 import subprocess
+import shutil
+import sys
+from importlib import metadata
+from version import VERSION
 
-# ── 项目根目录 ────────────────────────────────────────────────
-ROOT = os.path.dirname(os.path.abspath(__file__))
+ROOT = Path(__file__).resolve().parent
 
-# ── 打包前清理旧文件 ──────────────────────────────────────────
-for folder in ["build", "dist"]:
-    path = os.path.join(ROOT, folder)
-    if os.path.exists(path):
-        shutil.rmtree(path)
-        print(f"Cleaned: {folder}/")
+def main():
+    if sys.platform != "win32":
+        raise SystemExit("This builder targets Windows. See macos/README.md for macOS.")
+    # Resolve Git before PATH isolation. Source ZIPs carry SOURCE_COMMIT instead.
+    git = shutil.which("git")
+    if git and (ROOT / ".git").exists():
+        revision = subprocess.run([git, "-c", "safe.directory=" + str(ROOT),
+            "rev-parse", "HEAD"], cwd=ROOT, capture_output=True, text=True, check=True).stdout.strip()
+    elif (ROOT / "SOURCE_COMMIT").is_file():
+        revision = (ROOT / "SOURCE_COMMIT").read_text().strip()
+    else:
+        revision = os.environ.get("GITHUB_SHA", "unversioned-source")
+    # Prevent DLLs from unrelated installed software from entering the package.
+    windows = Path(os.environ["SystemRoot"])
+    os.environ["PATH"] = os.pathsep.join(map(str, (
+        Path(sys.prefix) / "Scripts", Path(sys.base_prefix),
+        Path(sys.base_prefix) / "DLLs", windows / "System32", windows)))
+    out = ROOT / "dist" / VERSION
+    work = ROOT / "build" / VERSION
+    out.mkdir(parents=True, exist_ok=True)
+    work.mkdir(parents=True, exist_ok=True)
+    data = [("face_landmarker.task", "."), ("icon.ico", "."), ("icon.png", "."),
+            ("assets/fonts", "assets/fonts"), ("assets/icons", "assets/icons"),
+            ("LICENSE", "."), ("THIRD_PARTY_NOTICES.md", "."),
+            ("release-assets.json", ".")]
+    for family in ("polite", "sharp", "original", "blip", "microbreak"):
+        data.append(("sounds/" + family, "sounds/" + family))
+    for name in ("BUILTIN-SOUNDS.md", "akx-LICENSE.md", "breaktimer-LICENSE.md",
+                 "workrave-COPYING", "workrave-LICENSES.md"):
+        data.append(("sounds/" + name, "sounds"))
+    args = [sys.executable, "-m", "PyInstaller", "--noconfirm", "--clean",
+            "--onefile", "--windowed", "--name", "Dryless",
+            "--distpath", str(out), "--workpath", str(work / "pyinstaller"),
+            "--specpath", str(work), "--icon", str(ROOT / "assets/icons/desktop-eye-sage.ico"),
+            "--collect-all", "mediapipe", "--copy-metadata", "mediapipe",
+            "--hidden-import", "cv2", "--hidden-import", "winsound",
+            "--hidden-import", "PyQt6.QtWidgets"]
+    for excluded in ("flask", "flask_socketio", "tkinter", "scipy", "pandas",
+                     "onnxruntime", "PyQt6.QtWebEngineCore", "PyQt6.QtWebEngineWidgets"):
+        args += ["--exclude-module", excluded]
+    for source, target in data:
+        if not (ROOT / source).exists():
+            raise FileNotFoundError(source)
+        args += ["--add-data", str(ROOT / source) + os.pathsep + target]
+    args.append(str(ROOT / "main.py"))
+    subprocess.run(args, cwd=ROOT, check=True)
+    info = {"version": VERSION, "platform": platform.platform(), "python": sys.version,
+            "revision": revision, "packages": {d.metadata["Name"]: d.version for d in metadata.distributions()}}
+    (out / "build-info.json").write_text(json.dumps(info, indent=2), encoding="utf-8")
+    print(str(out / "Dryless.exe"))
 
-spec_file = os.path.join(ROOT, "Dryless.spec")
-if os.path.exists(spec_file):
-    os.remove(spec_file)
-
-# ── 需要额外打包进去的数据文件 ────────────────────────────────
-datas = [
-    (os.path.join(ROOT, "face_landmarker.task"), "."),
-    (os.path.join(ROOT, "sounds"),               "sounds"),
-    (os.path.join(ROOT, "icon.png"),             "."),
-    (os.path.join(ROOT, "icon.ico"),             "."),
-]
-
-font_dir = os.path.join(ROOT, "assets", "fonts")
-if os.path.isdir(font_dir):
-    datas.append((font_dir, "assets/fonts"))
-
-datas_args = []
-for src, dst in datas:
-    if os.path.exists(src):
-        datas_args += ["--add-data", f"{src}{os.pathsep}{dst}"]
-
-# ── 构造 PyInstaller 命令 ─────────────────────────────────────
-cmd = [
-    sys.executable, "-m", "PyInstaller",
-    "--noconfirm",
-    "--onefile",
-    "--windowed",
-    "--name", "Dryless",
-    "--icon", os.path.join(ROOT, "icon.ico"),
-    "--hidden-import", "mediapipe",
-    "--hidden-import", "mediapipe.tasks",
-    "--hidden-import", "mediapipe.tasks.c",
-    "--hidden-import", "mediapipe.tasks.python",
-    "--hidden-import", "mediapipe.tasks.python.vision",
-    "--hidden-import", "mediapipe.python",
-    "--collect-all", "mediapipe",
-    "--hidden-import", "cv2",
-    "--hidden-import", "PyQt6.QtWidgets",
-    "--hidden-import", "PyQt6.QtCore",
-    "--hidden-import", "PyQt6.QtGui",
-    "--hidden-import", "numpy",
-    "--hidden-import", "winsound",
-    "--hidden-import", "pystray",
-    "--hidden-import", "PIL",
-    "--exclude-module", "flask",
-    "--exclude-module", "flask_socketio",
-    "--exclude-module", "tkinter",
-    "--exclude-module", "scipy",
-    "--exclude-module", "pandas",
-] + datas_args + [
-    os.path.join(ROOT, "main.py"),
-]
-
-print("=" * 60)
-print("Building Dryless...")
-print("This may take 3-10 minutes, please wait.")
-print("=" * 60)
-
-result = subprocess.run(cmd, cwd=ROOT)
-
-if result.returncode == 0:
-    exe_path = os.path.join(ROOT, "dist", "Dryless.exe")
-    size_mb = os.path.getsize(exe_path) / 1024 / 1024
-    print()
-    print("=" * 60)
-    print(f"Build successful!")
-    print(f"  Output: {exe_path}")
-    print(f"  Size:   {size_mb:.1f} MB")
-    print("=" * 60)
-else:
-    print()
-    print("=" * 60)
-    print("Build failed. Check the error above.")
-    print("Make sure PyInstaller is installed:")
-    print("  pip install pyinstaller")
-    print("=" * 60)
+if __name__ == "__main__":
+    main()

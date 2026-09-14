@@ -19,7 +19,9 @@ import json
 import os
 from datetime import date, timedelta
 
-_DATA_FILE = os.path.join(os.path.expanduser("~"), ".blink_reminder", "blink_data.json")
+import config
+
+_DATA_FILE = os.path.join(config.DATA_DIR, "blink_data.json")
 
 _HEALTHY_MIN = 15.0
 _HEALTHY_MAX = 20.0
@@ -44,6 +46,7 @@ def _load_raw() -> dict:
 
 def _save_raw(raw: dict):
     try:
+        os.makedirs(os.path.dirname(_DATA_FILE), exist_ok=True)
         with open(_DATA_FILE, "w", encoding="utf-8") as f:
             json.dump(raw, f, ensure_ascii=False, indent=2)
     except Exception as e:
@@ -102,7 +105,7 @@ def today_hourly() -> list[tuple[str, float]]:
         except (ValueError, IndexError):
             continue
         rate = float(r.get("blinks", 0))
-        if rate > 0:
+        if 0 <= hour <= 23 and rate >= 0:
             buckets.setdefault(hour, []).append(rate)
     result = []
     for hour in sorted(buckets):

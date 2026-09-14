@@ -2,8 +2,29 @@
 
 import json
 import os
+import shutil
 
-_CONFIG_FILE = os.path.join(os.path.expanduser("~"), ".blink_reminder", "config.json")
+# A separate profile lets the original and redesign coexist. Explicit test
+# profiles never import personal history. Seed the normal redesign only once.
+DATA_DIR = os.environ.get("DRYLESS_DATA_DIR", os.path.join(os.path.expanduser("~"), ".dryless-redesign"))
+if not os.environ.get("DRYLESS_DATA_DIR"):
+    marker = os.path.join(DATA_DIR, ".legacy-imported")
+    if not os.path.exists(marker):
+        try:
+            os.makedirs(DATA_DIR, exist_ok=True)
+            legacy = os.path.join(os.path.expanduser("~"), ".blink_reminder")
+            for name in ("config.json", "blink_data.json"):
+                source = os.path.join(legacy, name)
+                destination = os.path.join(DATA_DIR, name)
+                if os.path.isfile(source) and not os.path.exists(destination):
+                    pending = destination + ".importing"
+                    shutil.copy2(source, pending)
+                    os.replace(pending, destination)
+            with open(marker, "w", encoding="utf-8") as f:
+                f.write("Existing preferences and history copied; original files preserved.\n")
+        except OSError as error:
+            print(f"[config] Could not finish importing legacy profile; will retry: {error}")
+_CONFIG_FILE = os.path.join(DATA_DIR, "config.json")
 
 CAMERA_INDEX = 0
 CAMERA_WIDTH = 640
@@ -14,9 +35,12 @@ BLINK_RATIO_THRESHOLD = 0.60
 
 NO_BLINK_ALERT_SEC = 8
 ALERT_INTERVAL_SEC = 5
-ALERT_LEVELS = [0, 1, 2, 3]
+ALERT_LEVELS = [0, 1, 2]
 
+SOUND_ENABLED = True
+SOUND_THEME = "blip"
 SHOW_PREVIEW_ON_START = True
+CAMERA_ENABLED_ON_START = False
 PREVIEW_WINDOW_NAME = "Dryless - Press Q to hide"
 
 LANGUAGE = "en"
@@ -30,6 +54,10 @@ _PERSIST_KEYS = {
     "CAMERA_WIDTH": int,
     "CAMERA_HEIGHT": int,
     "LANGUAGE": str,
+    "SOUND_ENABLED": bool,
+    "SOUND_THEME": str,
+    "SHOW_PREVIEW_ON_START": bool,
+    "CAMERA_ENABLED_ON_START": bool,
 }
 
 
@@ -65,3 +93,5 @@ def save_config():
 
 
 load_config()
+if SOUND_THEME not in ("polite", "sharp", "original", "blip"):
+    SOUND_THEME = "blip"

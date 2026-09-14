@@ -22,6 +22,14 @@ blink_data.json
 Thumbs.db
 desktop.ini
 
+# macOS system files
+.DS_Store
+
+# Swift build artifacts
+.build/
+.swiftpm/
+DerivedData/
+
 # Temporary example / scratch files
 uiexample.py
 
@@ -43,3 +51,8 @@ update_cifen.py
 
 # Private archive created during repo cleanup
 _private_keep/
+
+# Local design experiments and test output
+.design/
+qa-output/
+release-output/

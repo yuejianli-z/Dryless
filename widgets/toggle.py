@@ -17,6 +17,7 @@ class Toggle(QWidget):
         self._knob = (self._w - self._h + 2) if value else 2
         self.setFixedSize(self._w, self._h)
         self.setCursor(Qt.CursorShape.PointingHandCursor)
+        self.setFocusPolicy(Qt.FocusPolicy.StrongFocus)
         self._anim = QPropertyAnimation(self, b"knob", self)
         self._anim.setDuration(160)
         self._anim.setEasingCurve(QEasingCurve.Type.InOutQuad)
@@ -40,6 +41,13 @@ class Toggle(QWidget):
         if e.button() == Qt.MouseButton.LeftButton:
             self.setValue(not self._value)
 
+    def keyPressEvent(self, e):
+        if e.key() in (Qt.Key.Key_Space, Qt.Key.Key_Return):
+            self.setValue(not self._value)
+            e.accept()
+        else:
+            super().keyPressEvent(e)
+
     def _get_knob(self):
         return self._knob
 
@@ -52,7 +60,7 @@ class Toggle(QWidget):
     def paintEvent(self, _e):
         p = QPainter(self)
         p.setRenderHint(QPainter.RenderHint.Antialiasing)
-        bg = QColor(T.BRAND) if self._value else QColor("#D0CBC3")
+        bg = QColor(T.BRAND_MID) if self._value else QColor("#D0CBC3")
         p.setBrush(QBrush(bg))
         p.setPen(Qt.PenStyle.NoPen)
         p.drawRoundedRect(0, 0, self._w, self._h, self._h / 2, self._h / 2)
